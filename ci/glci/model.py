@@ -656,6 +656,7 @@ class OciPublishCfg:
 class CiPublishCfg:
     committish: str
     epoch: int
+    version: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -814,7 +815,7 @@ def gardenlinux_epoch_from_workingtree(
     raise ValueError(f'{version_str=} was not understood - either semver, "dev" or "today" are supported')
 
 
-def _enumerate_feature_files(features_dir=os.path.join(repo_root, 'features')):
+def _enumerate_feature_files(features_dir=os.path.join(paths.gardenlinux_dir, 'features')):
     for root, _, files in os.walk(features_dir):
         for name in files:
             if not name == 'info.yaml':
@@ -882,10 +883,11 @@ def _garden_feat(
     cmd: str,
 ) -> str:
     all_mods = set(modifiers + (platform,))
+    garden_feat_binary = os.path.abspath(os.path.join(paths.gardenlinux_dir, 'bin', 'garden-feat'))
     completed = subprocess.run(
         args=[
-            os.path.abspath(os.path.join(paths.repo_root, 'bin', 'garden-feat')),
-            '--featureDir', os.path.abspath(os.path.join(paths.repo_root, 'features')),
+            garden_feat_binary,
+            '--featureDir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
             '--features', ','.join(all_mods),
             cmd,
         ],

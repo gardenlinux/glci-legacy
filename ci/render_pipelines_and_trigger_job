@@ -7,6 +7,10 @@ repo_root="${own_dir}/.."
 
 source "${own_dir}/lib.sh"
 
+if [ ! -z "${GARDENLINUX_PATH:-}" ]; then
+  GARDENLINUX_PATH="$(readlink -f "${GARDENLINUX_PATH}")"
+fi
+
 function sanitise_namespace_name {
   namespace_name=$1
   # sanitise given branch-name to k8s-namespace-name - k8s namespaces may contain only alphanumeric
@@ -100,14 +104,6 @@ if [ ! -z "${GARDENLINUX_BASE_IMAGE:-}" ]; then
 fi
 
 cleanup_pipelineruns "${tekton_namespace}"
-
-if [ -z "$(git config --get pullrequest.id)" ]; then
-  pr_id=""
-else
-  pr_id="$(git config --get pullrequest.id)"
-  echo "Is a PR: ${pr_id}"
-  EXTRA_ARGS="${EXTRA_ARGS} --pr-id ${pr_id}"
-fi
 
 # for local dev rendering use latest remote commit and no local one.
 if [ ! -z "${CC_CONFIG_DIR:-}" ]; then

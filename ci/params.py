@@ -43,6 +43,10 @@ class AllParams:
         default='main',
         description='commit to promote',
     )
+    gardenlinux_giturl = NamedParam(
+        name='gardenlinux_giturl',
+        default='ssh://git@github.com/gardenlinux/gardenlinux',
+    )
     disable_notifications = NamedParam(
         name='disable_notifications',
         default='false',
@@ -55,7 +59,7 @@ class AllParams:
     )
     giturl = NamedParam(
         name='giturl',
-        default='ssh://git@github.com/gardenlinux/gardenlinux'
+        default='ssh://git@github.com/gardenlinux/glci'
     )
     gardenlinux_epoch = NamedParam(
         name='gardenlinux_epoch',
@@ -120,6 +124,11 @@ class AllParams:
     )
     repo_dir = NamedParam(
         name='repo_dir',
+        default='/workspace/glci_git',
+        description='Gardenlinux working dir',
+    )
+    gardenlinux_repo_dir = NamedParam(
+        name='gardenlinux_repo_dir',
         default='/workspace/gardenlinux_git',
         description='Gardenlinux working dir',
     )
@@ -150,10 +159,6 @@ class AllParams:
         name='version',
         description='the target version to build / release',
     )
-    garden_build_version = NamedParam(
-        name='gardenbuild_version',
-        description='the version string passed to garden-build',
-    )
     version_label = NamedParam(
         name='version_label',
         description='version label uses as tag for upload',
@@ -162,8 +167,4 @@ class AllParams:
         name='status_dict_str',
         default='~',
         description='JSON string with status for all tasks',
-    )
-    pr_id = NamedParam(
-        name='pr_id',
-        description='The PR-id for PR-builds',
     )

@@ -18,5 +18,5 @@ glci:
           execute:
           - '../ci/render_pipelines_and_trigger_job'
           vars:
-            PROMOTE_TARGET: "'snapshot'"
-            BUILD_TARGETS: "'build-baseimage,build,manifest,component-descriptor'"
+            PROMOTE_TARGET: "'release'"
+            BUILD_TARGETS: "'build,build-baseimage,manifest,component-descriptor,publish,freeze-version'"

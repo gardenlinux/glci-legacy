@@ -143,7 +143,9 @@ def clone_step(
         params.committish,
         params.giturl,
         params.repo_dir,
-        params.pr_id,
+        params.gardenlinux_committish,
+        params.gardenlinux_giturl,
+        params.gardenlinux_repo_dir,
     ]
 
     code_prefix = "PATCH_CONTENT=''"
@@ -212,6 +214,10 @@ def promote_single_step(
         params.build_targets,
         params.version,
     ]
+    env_vars.append({
+        'name': 'GARDENLINUX_PATH',
+        'value': params.gardenlinux_repo_dir.default,
+    })
     step = tkn.model.TaskStep(
         name='promote-step',
         image='$(params.step_image)',
@@ -236,7 +242,7 @@ def promote_step(
 ):
     step_params = [
         params.cicd_cfg_name,
-        params.committish,
+        params.gardenlinux_committish,
         params.flavour_set_name,
         params.gardenlinux_epoch,
         params.promote_target,
@@ -364,7 +370,7 @@ def create_component_descriptor_step(
         params.branch,
         params.build_targets,
         params.cicd_cfg_name,
-        params.committish,
+        params.gardenlinux_committish,
         params.ctx_repository_config_name,
         params.flavour_set_name,
         params.gardenlinux_epoch,
@@ -405,7 +411,6 @@ def notify_step(
         params.pipeline_run_name,
         params.repo_dir,
         params.status_dict_str,
-        params.pr_id,
     ]
     step = tkn.model.TaskStep(
         name='notify-status',

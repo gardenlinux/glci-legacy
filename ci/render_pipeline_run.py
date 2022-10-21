@@ -91,6 +91,7 @@ def get_step_image(
 ):
     return f'{oci_path}/gardenlinux-step-image:{version_label}'
 
+# TODO: Remove
 def get_version(
     args: typing.Dict[str, str]
 ):
@@ -120,12 +121,20 @@ def find_param(
 
 
 def get_common_parameters(
-    args: typing.Dict[str, str]
+    args: typing.Dict[str, str],
+    build_cfg: glci.model.BuildCfg,
 ) -> typing.Sequence[NamedParam]:
-    # if version is not specified, derive from worktree (i.e. VERSION file)
-    version, gardenbuild_version = get_version(args)
 
-    version_label = get_version_label(version, args['committish'])
+    flavour_set = glci.util.flavour_set(
+        flavour_set_name=args["flavour_set"],
+        build_yaml=args["pipeline_cfg"],
+    )
+
+    gardenlinux_committish = build_cfg.publish.ci.committish
+    version = build_cfg.publish.ci.version
+    gardenlinux_epoch = build_cfg.publish.ci.epoch
+
+    version_label = get_version_label(version, gardenlinux_committish)
 
     parsed_version = version_lib.parse_to_semver(version_label)
     if parsed_version.minor > 0:
@@ -139,26 +148,29 @@ def get_common_parameters(
     git_url_param = NamedParam(name='giturl', value=str(args['git_url']))
 
     params = [
+        NamedParam(name='gardenlinux_committish', value=gardenlinux_committish),
+        NamedParam(name='gardenlinux_epoch', value=str(gardenlinux_epoch)),
+        NamedParam(name='flavour_set_name', value=flavour_set.name),
+        NamedParam(name='promote_target', value=args["promote_target"].value),
+        NamedParam(name='pytest_cfg', value=args["pytest_cfg"]),
         get_param_from_arg(args, 'additional_recipients'),
         get_param_from_arg(args, 'branch'),
         NamedParam(name='step_image', value=step_image),
         NamedParam(name='cicd_cfg_name', value=args['cicd_cfg']),
         get_param_from_arg(args, 'committish'),
         get_param_from_arg(args, 'disable_notifications'),
-        get_param_from_arg(args, 'gardenlinux_epoch'),
         git_url_param,
         get_param_from_arg(args, 'oci_path'),
         get_param_from_arg(args, 'only_recipients'),
-        get_param_from_arg(args, 'pr_id'),
         NamedParam(
             name='build_targets',
             value=','.join(a.value for a in args['build_targets'])
         ),
+        # TODO: Remove
         NamedParam(
             name='snapshot_timestamp',
-            value=glci.model.snapshot_date(gardenlinux_epoch=args['gardenlinux_epoch']),
+            value=glci.model.snapshot_date(gardenlinux_epoch=gardenlinux_epoch),
         ),
-        NamedParam(name='gardenbuild_version', value=gardenbuild_version),
         NamedParam(name='version', value=version),
         NamedParam(name='version_label', value=version_label),
     ]
@@ -169,6 +181,7 @@ def mk_pipeline_run(
     pipeline_name: str,
     args: argparse.ArgumentParser,
     params: typing.Sequence[NamedParam],
+    version: str,
     node_selector: dict = {},
     security_context: dict = {},
     timeout: str = '1h'
@@ -176,7 +189,7 @@ def mk_pipeline_run(
     run_name = mk_pipeline_name(
         pipeline_name=pipeline_name,
         build_targets=args.build_targets,
-        version=get_version(vars(args))[0],
+        version=version,
         committish=args.committish,
     )
 
@@ -202,31 +215,21 @@ def mk_pipeline_run(
 
 def mk_pipeline_main_run(
     args: argparse.ArgumentParser,
+    build_cfg:glci.model.CicdCfg,
     node_selector: dict = {},
     security_context: dict = {},
 ):
-    flavour_set = glci.util.flavour_set(
-        flavour_set_name=args.flavour_set,
-        build_yaml=args.pipeline_cfg,
+
+    params = get_common_parameters(
+        args=vars(args),
+        build_cfg=build_cfg,
     )
-
-    build_cfg = glci.util.cicd_cfg()
-
-    params = get_common_parameters(vars(args))
-    params.extend((
-        NamedParam(name='gardenlinux_committish', value=build_cfg.publish.ci.committish),
-        NamedParam(name='gardenlinux_epoch', value=build_cfg.publish.ci.epoch),
-    ))
-    params.extend((
-        NamedParam(name='flavour_set_name', value=flavour_set.name),
-        NamedParam(name='promote_target', value=args.promote_target.value),
-        NamedParam(name='pytest_cfg', value=args.pytest_cfg),
-    ))
 
     return mk_pipeline_run(
         pipeline_name='gardenlinux-build',
         args=args,
         params=params,
+        version=build_cfg.publish.ci.version,
         node_selector=node_selector,
         security_context=security_context,
         timeout='2h',
@@ -267,18 +270,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--committish', default='main')
     parser.add_argument('--branch', default='main')
-    parser.add_argument(
-        '--gardenlinux-epoch',
-        default=glci.model.gardenlinux_epoch_from_workingtree(),
-        help='the gardenlinux epoch defining the snapshot timestamp to build against',
-    )
     parser.add_argument('--cicd-cfg', default='default')
     parser.add_argument('--skip-cfssl-build', action='store_true')
     parser.add_argument('--pipeline-cfg', default=paths.flavour_cfg_path)
     parser.add_argument('--outfile', default='pipeline_run.yaml')
     parser.add_argument('--oci-path', default='eu.gcr.io/gardener-project/test/gardenlinux-test')
-    parser.add_argument('--git-url', default='https://github.com/gardenlinux/gardenlinux.git')
-    parser.add_argument('--pr-id', default=0)
+    parser.add_argument('--git-url', default='https://github.com/gardenlinux/glci.git')
     parser.add_argument('--flavour-set', default='all')
     parser.add_argument('--version', default=None)
     parser.add_argument('--disable-notifications', action='store_const', const=True, default=False)
@@ -305,8 +302,11 @@ def main():
     limits = mk_limits(name='gardenlinux')
     limits_dict = dataclasses.asdict(limits, dict_factory=tkn.model.limits_asdict_factory)
 
+    build_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
+
     pipeline_run = mk_pipeline_main_run(
         args=parsed,
+        build_cfg=build_cfg,
         security_context={'runAsUser': 0},
     )
     pipeline_run_dict = dataclasses.asdict(pipeline_run)

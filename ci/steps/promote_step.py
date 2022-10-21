@@ -55,6 +55,8 @@ def promote_single_step(
     )
 
     if not release_manifest:
+        logger.info(f'No release-manifest found for {modifiers=}')
+        exit(0)
         raise ValueError('no release-manifest found')
 
     if release_manifest.published_image_metadata is not None:
@@ -153,6 +155,8 @@ def promote_step(
     # ensure all previous tasks really were successful
     is_complete = len(releases) == len(flavours)
     if not is_complete:
+        logger.info(f"Found: {len(releases)=}")
+        logger.info(f"Expected: {len(flavours)=}")
         logger.error('release was not complete - will not publish (this indicates a bug!)')
         sys.exit(0)  # do not signal an error
 

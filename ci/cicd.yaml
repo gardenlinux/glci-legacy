@@ -14,8 +14,9 @@ cicd_cfgs:
       alicloud_cfg_name: 'gardenlinux'
     publish:
       ci:
-        epoch: 912
-        commitish: '8a01c0c693faa3ad9fdace0aca97515aba3ac380'
+        epoch: 934
+        version: '934.0'
+        committish: '86f69dcbf95d0ab9c6909421d4082449cae05e16'
       azure:
         offer_id: 'gardenlinux'
         publisher_id: 'sap'

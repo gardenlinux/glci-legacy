@@ -53,7 +53,7 @@ def _is_finalized_version(version):
 
 def build_component_descriptor(
     version: str,
-    committish: str,
+    gardenlinux_committish: str,
     cicd_cfg_name: str,
     gardenlinux_epoch: str,
     build_targets: str,
@@ -85,13 +85,13 @@ def build_component_descriptor(
     effective_version = _calculate_effective_version(
         version=version,
         build_targets=build_target_set,
-        committish=committish,
+        committish=gardenlinux_committish,
     )
 
     releases = tuple(find_releases(
         flavour_set=flavour_set,
         version=version,
-        build_committish=committish,
+        build_committish=gardenlinux_committish,
         gardenlinux_epoch=int(gardenlinux_epoch),
         )
     )
@@ -106,7 +106,7 @@ def build_component_descriptor(
     component_descriptor = _base_component_descriptor(
         version=effective_version,
         branch=branch,
-        commit=committish,
+        commit=gardenlinux_committish,
         ctx_repository_base_url=base_url
     )
 
@@ -149,7 +149,7 @@ def build_component_descriptor(
 
     release_set = find_release_set(
         flavour_set_name=flavour_set_name,
-        build_committish=committish,
+        build_committish=gardenlinux_committish,
         version=version,
         gardenlinux_epoch=gardenlinux_epoch,
         build_type=build_type,
@@ -161,7 +161,7 @@ def build_component_descriptor(
             glci.model.ReleaseManifestSet.release_manifest_set_prefix,
             build_type.value,
             glci.util.release_set_manifest_name(
-                build_committish=committish,
+                build_committish=gardenlinux_committish,
                 gardenlinux_epoch=gardenlinux_epoch,
                 version=version,
                 flavour_set_name=flavour_set_name,
