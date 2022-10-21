@@ -8,6 +8,8 @@ glci:
 
   jobs:
     on-head-update:
+      repo:
+        trigger: false
       repos:
       - name: 'GARDENLINUX'
         cfg_name: 'github_com'
