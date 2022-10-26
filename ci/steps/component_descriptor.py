@@ -397,6 +397,11 @@ def release_manifest_set_resource(
         version=effective_version,
         type=resource_type,
         access=resource_access,
+        digest=cm.DigestSpec(
+            hashAlgorithm='NO-DIGEST',
+            normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
+            value='NO-DIGEST',
+        ),
     )
 
 
