@@ -5,11 +5,13 @@ import logging
 import pprint
 import time
 import typing
+import functools
 
 import botocore.client
 
 import glci.model
 import glci.util
+import ccc.aws
 
 
 logger = logging.getLogger(__name__)
@@ -70,6 +72,7 @@ def import_snapshot(
             'Format': 'raw',
             'Description': 'uploaded by gardenlinux-cicd',
         },
+        Encrypted=False,
     )
 
     import_task_id = res['ImportTaskId']
@@ -348,91 +351,98 @@ def target_image_name_for_release(release: glci.model.OnlineReleaseManifest):
 
 
 def upload_and_register_gardenlinux_image(
-    mk_session: callable,
-    build_cfg: glci.model.BuildCfg,
+    publish_cfg: glci.model.AwsPublishCfg,
     release: glci.model.OnlineReleaseManifest,
 ) -> glci.model.OnlineReleaseManifest:
-    session = mk_session(region_name=build_cfg.aws_region)
-    ec2_client = session.client('ec2')
+    published_images = []
+    for aws_cfg_name in publish_cfg.aws_cfg_names:
+        logger.info(
+            f'Running AWS-Publication for aws-config {aws_cfg_name}.'
+        )
+        session = ccc.aws.session(aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        ec2_client = session.client('ec2')
 
-    target_image_name = target_image_name_for_release(release=release)
+        target_image_name = target_image_name_for_release(release=release)
 
-    aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
-    aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
+        aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
+        aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
 
-    # TODO: check path is actually S3_ReleaseFile
-    raw_image_key = aws_release_artifact_path.s3_key
-    bucket_name = aws_release_artifact_path.s3_bucket_name
+        # TODO: check path is actually S3_ReleaseFile
+        raw_image_key = aws_release_artifact_path.s3_key
+        bucket_name = aws_release_artifact_path.s3_bucket_name
 
-    snapshot_task_id = import_snapshot(
-        ec2_client=ec2_client,
-        s3_bucket_name=bucket_name,
-        image_key=raw_image_key,
-    )
-    logger.info(f'started import {snapshot_task_id=}')
+        snapshot_task_id = import_snapshot(
+            ec2_client=ec2_client,
+            s3_bucket_name=bucket_name,
+            image_key=raw_image_key,
+        )
+        logger.info(f'started import {snapshot_task_id=}')
 
-    snapshot_id = wait_for_snapshot_import(
-        ec2_client=ec2_client,
-        snapshot_task_id=snapshot_task_id,
-    )
-    logger.info(f'import task finished {snapshot_id=}')
+        snapshot_id = wait_for_snapshot_import(
+            ec2_client=ec2_client,
+            snapshot_task_id=snapshot_task_id,
+        )
+        logger.info(f'import task finished {snapshot_id=}')
 
-    initial_ami_id = register_image(
-        ec2_client=ec2_client,
-        snapshot_id=snapshot_id,
-        image_name=target_image_name,
-        architecture=_to_aws_architecture(release.architecture),
-    )
-    logger.info(f'registered {initial_ami_id=}')
+        initial_ami_id = register_image(
+            ec2_client=ec2_client,
+            snapshot_id=snapshot_id,
+            image_name=target_image_name,
+            architecture=_to_aws_architecture(release.architecture),
+        )
+        logger.info(f'registered {initial_ami_id=}')
 
-    region_names = tuple(enumerate_region_names(ec2_client=ec2_client))
+        region_names = tuple(enumerate_region_names(ec2_client=ec2_client))
 
-    try:
-        image_map = dict(
-            copy_image(
-                mk_session=mk_session,
-                ami_image_id=initial_ami_id,
-                image_name=target_image_name,
-                src_region_name=build_cfg.aws_region,
-                target_regions=region_names,
+        try:
+            image_map = dict(
+                copy_image(
+                    mk_session=mk_session,
+                    ami_image_id=initial_ami_id,
+                    image_name=target_image_name,
+                    src_region_name=session.region_name,
+                    target_regions=region_names,
+                )
             )
+        except:
+            logger.warning('an error occurred whilst copying images - will remove them')
+            unregister_images_by_name(
+                mk_session=mk_session,
+                image_name=target_image_name,
+                region_names=region_names,
+            )
+            raise
+
+        # dict{<region_name>: <ami_id>}
+
+        # add origin image
+        image_map[session.region_name] = initial_ami_id
+
+        published_images.extend(
+            glci.model.AwsPublishedImage(
+                ami_id=ami_id,
+                aws_region_id=region_name,
+                image_name=target_image_name,
+            ) for region_name, ami_id in image_map.items()
         )
-    except:
-        logger.warning('an error occurred whilst copying images - will remove them')
-        unregister_images_by_name(
+
+        image_map_pretty = pprint.pformat(image_map)
+        logger.info(f'copied images: {image_map_pretty}')
+
+        wait_for_images(
             mk_session=mk_session,
-            image_name=target_image_name,
-            region_names=region_names,
+            region_img_map=image_map,
         )
-        raise
+        logger.info(f'all {len(image_map)} images became "ready"')
 
-    # dict{<region_name>: <ami_id>}
+        set_images_public(
+            mk_session=mk_session,
+            region_img_map=image_map,
+        )
+        logger.info(f'all {len(image_map)} images were set to "public"')
 
-    # add origin image
-    image_map[build_cfg.aws_region] = initial_ami_id
-
-    published_images = tuple((
-        glci.model.AwsPublishedImage(
-            ami_id=ami_id,
-            aws_region_id=region_name,
-            image_name=target_image_name,
-        ) for region_name, ami_id in image_map.items()
-    ))
-    published_image_set = glci.model.AwsPublishedImageSet(published_aws_images=published_images)
-
-    image_map_pretty = pprint.pformat(image_map)
-    logger.info(f'copied images: {image_map_pretty}')
-
-    wait_for_images(
-        mk_session=mk_session,
-        region_img_map=image_map,
+    published_image_set = glci.model.AwsPublishedImageSet(
+        published_aws_images=tuple(published_images)
     )
-    logger.info(f'all {len(image_map)} images became "ready"')
-
-    set_images_public(
-        mk_session=mk_session,
-        region_img_map=image_map,
-    )
-    logger.info(f'all {len(image_map)} images were set to "public"')
-
     return dataclasses.replace(release, published_image_metadata=published_image_set)

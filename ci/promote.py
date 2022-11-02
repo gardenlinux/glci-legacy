@@ -139,12 +139,8 @@ def _publish_aws_image(release: glci.model.OnlineReleaseManifest,
                        cicd_cfg: glci.model.CicdCfg,
 ) -> glci.model.OnlineReleaseManifest:
     import glci.aws
-    import ccc.aws
-    mk_session = functools.partial(
-        ccc.aws.session, aws_cfg=cicd_cfg.build.aws_cfg_name)
     return glci.aws.upload_and_register_gardenlinux_image(
-        mk_session=mk_session,
-        build_cfg=cicd_cfg.build,
+        publish_cfg=cicd_cfg.publish.aws,
         release=release,
     )
 
@@ -152,17 +148,16 @@ def _publish_aws_image(release: glci.model.OnlineReleaseManifest,
 def _cleanup_aws(
     release: glci.model.OnlineReleaseManifest,
     cicd_cfg: glci.model.CicdCfg,
-) -> glci.model.OnlineReleaseManifest:
+):
     import glci.aws
     import ccc.aws
     target_image_name = glci.aws.target_image_name_for_release(release=release)
-    mk_session = functools.partial(
-        ccc.aws.session, aws_cfg=cicd_cfg.build.aws_cfg_name
-    )
-    return glci.aws.unregister_images_by_name(
-        mk_session=mk_session,
-        image_name=target_image_name,
-    )
+    for aws_cfg_name in cicd_cfg.publish.aws.aws_cfg_names:
+        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        glci.aws.unregister_images_by_name(
+            mk_session=mk_session,
+            image_name=target_image_name,
+        )
 
 
 def _publish_azure_image(release: glci.model.OnlineReleaseManifest,
@@ -346,3 +341,9 @@ def _publish_openstack_image(release: glci.model.OnlineReleaseManifest,
         image_properties=image_properties,
         release=release,
     )
+
+
+def distribute_artifacts(
+    cicd_cfg: glci.model.CicdCfg,
+):
+    source_client = ccc.aws.session(cicd_cfg.build.aws_cfg_name).client('s3')

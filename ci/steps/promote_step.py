@@ -5,6 +5,7 @@ import logging
 
 import glci.model
 import glci.util
+import glci.s3
 import promote
 import version as version_util
 
@@ -65,40 +66,24 @@ def promote_single_step(
         logger.info('artifacts were already published - exiting now')
         sys.exit(0)
 
-    if release_manifest.platform == 'azure' and not cicd_cfg.publish.azure.shared_gallery_cfg_name:
-        # publishing on azure is currently a lengthy process. We do, however, already know the URN
-        # it will end up at.
-        # Prepare the information here already - will be overwritten if actual publishing proceeds.
-        # Note: This is not done if we will publish using the community gallery (currently
-        # determined by the presence of a Gallery-cfg name)
-        publisher_id = cicd_cfg.publish.azure.publisher_id
-        offer_id = cicd_cfg.publish.azure.offer_id
-        plan_id = cicd_cfg.publish.azure.plan_id
-        parsed_version = version_util.parse_to_semver(version)
-        published_image_metadata = glci.model.AzurePublishedImage(
-            transport_state=glci.model.AzureTransportState.PROVISIONAL,
-            publish_operation_id='',
-            golive_operation_id='',
-            urn=f'{publisher_id}:{offer_id}:{plan_id}:{parsed_version}',
-        )
-        release_manifest = dataclasses.replace(
-            release_manifest,
-            published_image_metadata=published_image_metadata,
-        )
+    # for AWS partitions (e.g. AWS-CN) the source-file needs to be in a bucket that is part
+    # of that partition.
+    if release_manifest.platform == 'aws':
+        for aws_cfg_name in cicd_cfg.publish.aws.aws_cfg_names:
+            if aws_cfg_name == cicd_cfg.build.aws_cfg_name:
+                continue
 
-    try:
-        new_manifest = promote.publish_image(
-            release=release_manifest,
-            cicd_cfg=cicd_cfg,
-        )
-    except Exception:
-        # issues with azure are to be expected, given the current approach. Continue with the
-        # provisional information available.
-        if release_manifest.platform == 'azure':
-            new_manifest = release_manifest
-        else:
-            # for all other platforms no issues are expected
-            raise
+            glci.s3._transport_release_artifact(
+                release_manifest=release_manifest,
+                source_cfg_name=cicd_cfg.build.aws_cfg_name,
+                destination_cfg_name=aws_cfg_name,
+                platform=platform,
+            )
+
+    new_manifest = promote.publish_image(
+        release=release_manifest,
+        cicd_cfg=cicd_cfg,
+    )
 
     # the (modified) release manifest contains the publishing resource URLs - re-upload to persist
     upload_release_manifest = glci.util.preconfigured(

@@ -13,6 +13,10 @@ cicd_cfgs:
       alicloud_region: 'eu-central-1'
       alicloud_cfg_name: 'gardenlinux'
     publish:
+      aws:
+        aws_cfg_names:
+          - 'gardenlinux'
+          - 'gardenlinux-cn'
       ci:
         epoch: 934
         version: '934.0'

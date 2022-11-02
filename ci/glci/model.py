@@ -579,6 +579,11 @@ class BuildCfg:
 
 
 @dataclasses.dataclass(frozen=True)
+class AwsPublishCfg:
+    aws_cfg_names: typing.Tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
 class PackageBuildCfg:
     aws_cfg_name: str
     s3_bucket_name: str
@@ -661,10 +666,11 @@ class CiPublishCfg:
 
 @dataclasses.dataclass(frozen=True)
 class PublishCfg:
-    ci: CiPublishCfg
+    aws: AwsPublishCfg
     azure: AzurePublishCfg
-    openstack: OpenstackPublishCfg
+    ci: CiPublishCfg
     oci: OciPublishCfg
+    openstack: OpenstackPublishCfg
 
 
 @dataclasses.dataclass(frozen=True)

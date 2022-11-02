@@ -1,6 +1,9 @@
 import os
+import tempfile
+
 import glci.model
 import glci.util
+import ccc.aws
 
 
 def _s3_session(aws_cfg_name: str):
@@ -56,6 +59,37 @@ def upload_dir(
                 )
 
 
+def download_file(
+    s3_resource,
+    bucket_name: str,
+    s3_key: str,
+    local_dir: str,
+    filename: str = 'file'
+) -> str:
+    bucket = s3_resource.Bucket(name=bucket_name)
+    local_dir = os.path.abspath(os.path.realpath(local_dir))
+    path_to_file = os.path.join(local_dir, filename)
+    bucket.download_file(
+        Key=s3_key,
+        Filename=path_to_file,
+    )
+    return path_to_file
+
+
+def upload_file(
+    s3_resource,
+    bucket_name: str,
+    s3_key: str,
+    file_path: str,
+):
+    bucket = s3_resource.Bucket(name=bucket_name)
+
+    bucket.upload_file(
+        Filename=file_path,
+        Key=s3_key,
+    )
+
+
 def download_dir(
     s3_resource,
     bucket_name: str,
@@ -75,3 +109,34 @@ def download_dir(
         os.makedirs(local_dest_dir, exist_ok=True)
 
         bucket.download_file(Key=s3_obj.key, Filename=local_dest_file_path)
+
+
+def _transport_release_artifact(
+    release_manifest: glci.model.OnlineReleaseManifest,
+    source_cfg_name: str,
+    destination_cfg_name: str,
+    platform: glci.model.Platform = 'aws',
+):
+    # Copy the relevant release-artefact from the source-bucket to the destination-bucket.
+    # It is assumed there _is_ a bucket present in the destination with the same name as in the
+    # source partition
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        session = ccc.aws.session(aws_cfg=source_cfg_name)
+        resource = session.resource('s3')
+        s3_release_file = release_manifest.path_by_suffix(
+            glci.util.virtual_image_artifact_for_platform(platform)
+        )
+        artefact_file_path = download_file(
+            s3_resource=resource,
+            bucket_name=s3_release_file.s3_bucket_name,
+            local_dir=tmp_dir,
+            s3_key=s3_release_file.s3_key,
+        )
+        session = ccc.aws.session(aws_cfg=destination_cfg_name)
+        resource = session.resource('s3')
+        upload_file(
+            s3_resource=resource,
+            bucket_name=s3_release_file.s3_bucket_name,
+            s3_key=s3_release_file.s3_key,
+            file_path=artefact_file_path,
+        )
