@@ -44,6 +44,11 @@ class OpenstackImageUploader:
     def upload_image_from_url(self, name: str, url :str, meta: dict, timeout_seconds=86400):
         '''Import an image from web url to Openstack Glance.'''
 
+        print(
+            f'Uploading imag for region {self.openstack_env.region} '
+            f'({self.openstack_env.project_name})'
+        )
+
         conn = self._get_connection()
         image = conn.image.create_image(
             name=name,
@@ -63,14 +68,24 @@ class OpenstackImageUploader:
         start_time = datetime.now()
         while True:
             if (datetime.now()-start_time).total_seconds() > timeout:
-                raise RuntimeError('Timeout for waiting image to get ready reached.')
+                raise RuntimeError(
+                    f'Timeout for waiting image to get ready in {self.openstack_env.region} '
+                    f'({self.openstack_env.project_name}) reached.'
+                )
             image = conn.image.get_image(image_id)
             if image['status'] == 'queued' or image['status'] == 'saving' or image['status'] == 'importing':
+                print(
+                    f'Image not yet ready in region {self.openstack_env.region} '
+                    f'({self.openstack_env.project_name})'
+                )
                 sleep(wait_interval_seconds)
                 continue
             if image['status'] == 'active':
                 return
-            raise RuntimeError(f"image upload to Glance failed due to image status {image['status']}")
+            raise RuntimeError(
+                f"Image upload to Glance failed in region {self.openstack_env.region} due "
+                f"to image status {image['status']}"
+            )
 
 
 def upload_and_publish_image(
