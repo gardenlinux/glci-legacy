@@ -19,8 +19,8 @@ cicd_cfgs:
           - 'gardenlinux-cn'
       ci:
         epoch: 934
-        version: '934.0'
-        committish: '86f69dcbf95d0ab9c6909421d4082449cae05e16'
+        version: '934.1'
+        committish: 'b1021e6923e60e8a9ff1d5707d7bcaa13e8df26e'
       azure:
         offer_id: 'gardenlinux'
         publisher_id: 'sap'
