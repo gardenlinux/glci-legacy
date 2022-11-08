@@ -371,9 +371,3 @@ def _cleanup_openstack_image(
         openstack_environments_cfgs=openstack_env_cfgs,
         release=release,
     )
-
-
-def distribute_artifacts(
-    cicd_cfg: glci.model.CicdCfg,
-):
-    source_client = ccc.aws.session(cicd_cfg.build.aws_cfg_name).client('s3')
