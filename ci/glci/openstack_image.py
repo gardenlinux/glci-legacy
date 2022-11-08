@@ -41,6 +41,16 @@ class OpenstackImageUploader:
         )
         return image['id']
 
+    def delete_image(
+        self,
+        image_name: str,
+    ):
+        conn = self._get_connection()
+        if (image_id := conn.image.find_image(name_or_id=image_name)):
+            conn.image.delete_image(
+                image=image_id,
+            )
+
     def upload_image_from_url(self, name: str, url :str, meta: dict, timeout_seconds=86400):
         '''Import an image from web url to Openstack Glance.'''
 
@@ -128,3 +138,15 @@ def upload_and_publish_image(
 
     published_image_set = glci.model.OpenstackPublishedImageSet(published_openstack_images=tuple(published_images))
     return dataclasses.replace(release, published_image_metadata=published_image_set)
+
+
+def delete_images_for_release(
+    openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
+    release: glci.model.OnlineReleaseManifest,
+) -> glci.model.OnlineReleaseManifest:
+    """Delete all images created by a given release"""
+
+    image_name = f"gardenlinux-{release.version}"
+    for env_cfg in openstack_environments_cfgs:
+        uploader = OpenstackImageUploader(env_cfg)
+        uploader.delete_image(image_name=image_name)
