@@ -1,12 +1,15 @@
 import dataclasses
 import functools
 import typing
+import logging
 from datetime import datetime
 from time import sleep
 
 from openstack import connect
 
 import glci
+
+logger = logging.getLogger(__name__)
 
 class OpenstackImageUploader:
     '''OpenstackImageUploader is a client to upload images to Openstack Glance.'''
@@ -44,9 +47,10 @@ class OpenstackImageUploader:
     def upload_image_from_url(self, name: str, url :str, meta: dict, timeout_seconds=86400):
         '''Import an image from web url to Openstack Glance.'''
 
-        print(
-            f'Uploading imag for region {self.openstack_env.region} '
-            f'({self.openstack_env.project_name})'
+        logger.info(
+            f'Uploading image for region {self.openstack_env.region} '
+            f'({self.openstack_env.project_name}) from {url} '
+            f'with timeout of {timeout_seconds} seconds'
         )
 
         conn = self._get_connection()
@@ -74,7 +78,7 @@ class OpenstackImageUploader:
                 )
             image = conn.image.get_image(image_id)
             if image['status'] == 'queued' or image['status'] == 'saving' or image['status'] == 'importing':
-                print(
+                logger.info(
                     f'Image not yet ready in region {self.openstack_env.region} '
                     f'({self.openstack_env.project_name})'
                 )
