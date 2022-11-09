@@ -76,7 +76,7 @@ def publish_image(
         cleanup_function = None
     elif release.platform == 'openstack':
         publish_function = _publish_openstack_image
-        cleanup_function = None
+        cleanup_function = _cleanup_openstack_image
     elif release.platform == 'oci':
         publish_function = _publish_oci_image
         cleanup_function = None
@@ -343,7 +343,31 @@ def _publish_openstack_image(release: glci.model.OnlineReleaseManifest,
     )
 
 
-def distribute_artifacts(
+def _cleanup_openstack_image(
+    release: glci.model.OnlineReleaseManifest,
     cicd_cfg: glci.model.CicdCfg,
 ):
-    source_client = ccc.aws.session(cicd_cfg.build.aws_cfg_name).client('s3')
+    import glci.openstack_image
+    import ci.util
+
+    cfg_factory = ci.util.ctx().cfg_factory()
+    openstack_environments_cfg = cfg_factory.ccee(cicd_cfg.publish.openstack.environment_cfg_name)
+
+    username = openstack_environments_cfg.credentials().username()
+    password = openstack_environments_cfg.credentials().passwd()
+
+    openstack_env_cfgs = tuple((
+        glci.model.OpenstackEnvironment(
+            project_name=project.name(),
+            domain=project.domain(),
+            region=project.region(),
+            auth_url=project.auth_url(),
+            username=username,
+            password=password,
+        ) for project in openstack_environments_cfg.projects()
+    ))
+
+    glci.openstack_image.delete_images_for_release(
+        openstack_environments_cfgs=openstack_env_cfgs,
+        release=release,
+    )
