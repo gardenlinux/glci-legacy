@@ -888,7 +888,7 @@ def _garden_feat(
     modifiers: typing.Tuple[str, ...],
     cmd: str,
 ) -> str:
-    all_mods = set(modifiers + (platform,))
+    all_mods = set(tuple(modifiers) + (platform,))
     garden_feat_binary = os.path.abspath(os.path.join(paths.gardenlinux_dir, 'bin', 'garden-feat'))
     completed = subprocess.run(
         args=[
