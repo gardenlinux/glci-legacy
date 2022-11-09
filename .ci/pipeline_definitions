@@ -22,3 +22,4 @@ glci:
           vars:
             PROMOTE_TARGET: "'release'"
             BUILD_TARGETS: "'build,build-baseimage,manifest,component-descriptor,publish,freeze-version'"
+            FLAVOUR_SET: "'public-clouds'"
