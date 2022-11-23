@@ -20,8 +20,6 @@ import mailutil
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 
 def _email_cfg(cicd_cfg: glci.model.CicdCfg):
     ctx = ci.util.ctx()
@@ -61,9 +59,6 @@ def _attach_and_send(
                 subtype='zip',
                 filename=log_zip_name,
             )
-    # for debugging generate a local file
-    # with open('email_out.html', 'w') as file:
-    #     file.write(mail_body)
 
     mail_client = _smtp_client(email_cfg=email_cfg)
     mail_client.send_message(msg=mail_msg)
