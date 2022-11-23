@@ -1,64 +1,39 @@
-# Introduction
-The following section describes how Garden Linux can be built using a pipeline.
-The open source project [Tekton](https://github.com/tektoncd/pipeline) is used as environment to run the build. The build pipeline is fully containerized and requires a Kubernetes cluster.
+# Gardenlinux image publishing gear
 
-## Overview About The Build
-The Garden Linux build is done in several phases and runs fully containerized. In the first phase some images are created that are used as base images for the subsequent build steps. The second phase build the VM images. The final VM images are uploaded to an (S3-like) object store and can optionally be uploaded to hyperscalers (Alicloud, AWS, Azure or Google).
+This repository contains tooling and configuration for publishing gardenlinux images as machine
+images to different hyperscalers.
+
+The images to be published are built in a separate pipeline from sources hosted in
+[gardenlinux repository](https://github.com/gardenlinux/gardenlinux), and consumed from a
+S3 bucket.
+
+The publishing gear is intended to be run on a Tekton installation.
 
 ## Installation
-You have to install Tekton pipelines and the Tekton dashboard (recommended)
 
-Tekton pipelines:
-[https://github.com/tektoncd/pipeline/releases](https://github.com/tektoncd/pipeline/releases)
 
-`kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.25.0/release.yaml`
+Follow instructions to install
 
-Install Tekton dashboard (check compatibility with Tekton pipelines release):
-[https://github.com/tektoncd/dashboard/releases](https://github.com/tektoncd/dashboard/releases)
+- [tekton pipelines](https://github.com/tektoncd/pipeline)
+- [tekton dashboard](https://github.com/tektoncd/dashboard)
 
-`kubectl apply --filename https://github.com/tektoncd/dashboard/releases/download/v0.18.0/tekton-dashboard-release.yaml`
+Known good versions:
 
-`http://localhost:9097`
+- v0.25.0 (pipeliens)
+- v0.18.0 (dashboard)
 
-Install Python (>= 3.8) and pip
-Install Python libraries
-`pip install -r ci/images/step_image/requirements.txt`
 
-Install
+### Local Setup (for development/testing/debugging)
 
-```
-kubectl (installed automatically from script)
-tekton-cli (installed automatically from script)
-```
+- tekton-cli
+- python3.9 or greater
+- install packages from ci/images/step_image/requirements.txt
+- kubectl
 
-### Set Limits
-The build machine requires a certain amount of resources usually not available by default. Apply the
-following limits:
 
-```
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: gardenlinux
-spec:
-  limits:
-  - type: Container
-    max:
-      ephemeral-storage: 128Gi
-    min:
-      ephemeral-storage: 16Gi
-    default:
-      ephemeral-storage: 128Gi
-      memory: 24G
-      cpu: 16.0
-    defaultRequest:
-      ephemeral-storage: 20Gi
-      memory: 4G
-      cpu: 1.0
-
-```
 
 ### Grant API Permissions To Script User
+
 All tekton related scripts are executed by a service user "default" in the corresponding namespace. This user must be granted the permission to get (read) access to Tekton and pod resources:
 
 ```
@@ -105,11 +80,8 @@ roleRef:
 
 The namespace can be set according to your preferences. In this document and in the provided scripts the namespace "gardenlinux" is used. The namespace is set in an environment variable "GARDENLINUX_TKN_WS". If not set it defaults to "gardenlinux"
 
-### Overview About The Build
+## Overview About The Build
 
-The Garden Linux build is done in several phases and runs fully containerized. In the first phase some images are created that are used as base images for the subsequent build steps. The second phase build the VM images. The final VM images are uploaded to an (S3-like) object store and can optionally be uploaded to hyperscalers (Alicloud, AWS, Azure or Google).
-
-The build uses one pipeline to build the VM images.
 
 Build variants:
 The build can handle various variants of build artifacts. These are configured by a flavour set. The flavours are defined in the file flavours.yaml in the root directory of th Git repository. By default there is one set in this file named "all". You can add more sets according to your needs.
@@ -124,7 +96,8 @@ There are options how the build artifacts are handled after build. This is set i
 
 If the variable is not set it defaults to "`build`"
 
-The flavour set build by the pipeline is contained in the environment variable FLAVOUR_SET and defaults to "all" if not set.
+The flavour set build by the pipeline is contained in the environment variable
+FLAVOUR_SET and defaults to "all" if not set.
 
 **Example:**
 Here is example to build only the AWS image. Append the following snippet to `flavours.yaml`:
@@ -179,12 +152,28 @@ Example:
 
 ### Credential Handling
 
-The build pipeline can be used with a central server managing configuration and secrets. As an alternative all credentials can be read from a Kubernetes secret named "secrets" in the corresponding namespace. This secret will be automatically generated from configuration files. The switch between central server and a Kubernetes secret is done by an environment variable named `SECRET_SERVER_ENDPOINT`. If it is not set the secret will be generated and applied. At minimum there need to be two secrets: One for uploading the artifacts to an S3-like Object store and one to upload container images to an OCI registry. Example files are provided in the folder `ci/cfg`.
+The build pipeline can be used with a central server managing configuration and
+secrets. As an alternative all credentials can be read from a Kubernetes secret
+named "secrets" in the corresponding namespace. This secret will be
+automatically generated from configuration files. The switch between central
+server and a Kubernetes secret is done by an environment variable named
+`SECRET_SERVER_ENDPOINT`. If it is not set the secret will be generated and
+applied. At minimum there need to be two secrets: One for uploading the
+artifacts to an S3-like Object store and one to upload container images to an
+OCI registry. Example files are provided in the folder `ci/cfg`.
 
 Edit the files cfg/cfg_types.yaml. Each top-level entry refers to another file
-containing the credentials. Examples with templates are provided. A second entry is for uploading the base-image and to an OCI registry. Additional configuration information is found in [cicd.yaml](cicd.yaml)
+containing the credentials. Examples with templates are provided. A second
+entry is for uploading the base-image and to an OCI registry. Additional
+configuration information is found in [cicd.yaml](cicd.yaml)
 
-For sending notifications by default recipients are read from the CODEOWNERS files. Resolving this to email requires access to the Github API which is not possible for external users. The behavior can be overriden by setting the variable `only_recipients` in the pipelineRun file. If this variable contains a semicolon separated list of email addresses emails are sent only to these recipients. CODEWONWERS access is not needed then. For configuring an SMTP server a sample file is provided.
+For sending notifications by default recipients are read from the CODEOWNERS
+files. Resolving this to email requires access to the Github API which is not
+possible for external users. The behavior can be overriden by setting the
+variable `only_recipients` in the pipelineRun file. If this variable contains a
+semicolon separated list of email addresses emails are sent only to these
+recipients. CODEWONWERS access is not needed then. For configuring an SMTP
+server a sample file is provided.
 
 
 ## Integration Tests (under construction)
@@ -214,7 +203,7 @@ stringData:
 The test can be executed within a cluster that has tekton installed by running:
 
 ```
-# create test defintions and resrouces
+# create test defintions and resources
 kubectl apply -f ./ci/integrationtest-task.yaml
 
 # run the actual test as taskrun
