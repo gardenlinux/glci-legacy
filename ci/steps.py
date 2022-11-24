@@ -10,7 +10,6 @@ import results
 import tkn.model
 
 DEFAULT_IMAGE = 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
-CACHED_PATCH: str = None
 
 logger = logging.getLogger(__name__)
 
@@ -29,41 +28,6 @@ class ScriptType(enum.Enum):
     PYTHON3 = 'python3'
 
 
-def create_patch(remote_branch: str):
-    global CACHED_PATCH
-
-    if CACHED_PATCH:
-        return CACHED_PATCH
-
-    repo_dir = os.path.abspath(os.path.join(own_dir, '..'))
-    repo = Repo(repo_dir)
-    git = repo.git
-    untracked = repo.untracked_files
-    git.fetch('origin', remote_branch)
-    for f in untracked:
-        logger.info(f'add untracked file: {f}')
-        git.add(f, '--intent-to-add')
-    info = git.diff(f'origin/{remote_branch}', '--name-only')
-    info = info.replace('\n', ', ')
-    patch = git.diff(f'origin/{remote_branch}')
-    patch += '\n'
-    logger.info(
-        f'Creating patch against: {remote_branch}, '
-        f'contains files: {info} and has length: {len(patch)}'
-    )
-
-    git.reset('--mixed')
-    enc_patch = base64.b64encode(patch.encode('utf-8'))
-    enc_patch = enc_patch.decode('utf-8')
-    # Split string every 64 chars
-    n = 64
-    lines = [enc_patch[i:i+n] for i in range(0, len(enc_patch), n)]
-    lines = '\n'.join(lines)
-    lines += '\n'
-    CACHED_PATCH = lines
-    return lines
-
-
 def task_step_script(
     script_type: ScriptType,
     callable: str,
@@ -72,7 +36,6 @@ def task_step_script(
     repo_path_param: typing.Optional[tkn.model.NamedParam]=None,
     path: str = None,
     inline_script: str = None,
-    additional_prefix: str = None,
 ):
     '''
     renders an inline-step-script, prepending a shebang, and appending an invocation
@@ -89,9 +52,6 @@ def task_step_script(
             script = f.read()
     elif inline_script:
         script = inline_script
-
-    if additional_prefix:
-        script =  '\n\n' + additional_prefix + '\n\n' + script
 
     if script_type is ScriptType.PYTHON3:
         shebang = '#!/usr/bin/env python3'
@@ -146,10 +106,6 @@ def clone_step(
         params.gardenlinux_repo_dir,
     ]
 
-    code_prefix = "PATCH_CONTENT=''"
-    if patch_code := os.getenv('PATCH_BRANCH'):
-        patch_content = create_patch(patch_code)
-        code_prefix = f"PATCH_CONTENT='''\\\n{patch_content}'''\n"
     step = tkn.model.TaskStep(
         name='clone-repo-step',
         image=DEFAULT_IMAGE,
@@ -159,7 +115,6 @@ def clone_step(
             callable='clone_and_copy',
             params=step_params,
             repo_path_param=params.repo_dir,
-            additional_prefix=code_prefix,
         ),
         volumeMounts=volume_mounts,
         env=env_vars,
