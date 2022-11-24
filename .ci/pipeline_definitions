@@ -35,6 +35,7 @@ glci:
               tag_as_latest: true
         version:
           versionfile: 'job-image-version'
+          preprocess: 'finalise'
         release:
           release_on_github: false
         component_descriptor: ~

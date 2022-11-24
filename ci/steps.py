@@ -9,8 +9,7 @@ import params
 import results
 import tkn.model
 
-IMAGE_VERSION = '1.1878.0'
-DEFAULT_IMAGE = f'eu.gcr.io/gardener-project/cc/job-image:{IMAGE_VERSION}'
+DEFAULT_IMAGE = 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
 CACHED_PATCH: str = None
 
 logger = logging.getLogger(__name__)
