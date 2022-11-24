@@ -334,33 +334,6 @@ def release_step(
     return step, step_params
 
 
-def build_step_image_step(
-    params: params.AllParams,
-    env_vars: typing.List[typing.Dict] = [],
-    volume_mounts: typing.List[typing.Dict] = [],
-):
-    step_params = [
-        params.oci_path,
-        params.repo_dir,
-        params.version_label,
-        params.build_targets,
-    ]
-    step = tkn.model.TaskStep(
-        name='build-step-image',
-        image=KANIKO_IMAGE,
-        script=task_step_script(
-            path=os.path.join(steps_dir, 'build_step_image.py'),
-            script_type=ScriptType.PYTHON3,
-            callable='build_step_image',
-            repo_path_param=params.repo_dir,
-            params=step_params,
-        ),
-        volumeMounts=volume_mounts,
-        env=env_vars,
-    )
-    return step, step_params
-
-
 def create_component_descriptor_step(
     params: params.AllParams,
     env_vars: typing.List[typing.Dict] = [],

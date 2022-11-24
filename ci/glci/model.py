@@ -20,10 +20,6 @@ repo_root = os.path.abspath(os.path.join(
 
 
 class BuildTarget(enum.Enum):
-    # build the base-image for BUILD step
-    BASE_BUILD = ('build-baseimage',
-        {}
-    )
     # compile, link, create arifacts local
     BUILD = ('build',
         {}
