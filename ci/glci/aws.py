@@ -107,7 +107,9 @@ def wait_for_snapshot_import(
         logger.info(f'{snapshot_task_id=}: {status=}')
 
         if status is TaskStatus.DELETED:
-            raise RuntimeError(f'image uploaded by {snapshot_task_id=} was rejected')
+            status = describe_import_snapshot_task()
+            details = status['SnapshotTaskDetail']
+            raise RuntimeError(f'image uploaded by {snapshot_task_id=} was rejected: {details=}')
         time.sleep(polling_interval_seconds)
 
     return snapshot_id()
