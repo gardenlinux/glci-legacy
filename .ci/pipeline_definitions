@@ -21,4 +21,17 @@ glci:
           - '../ci/render_pipelines_and_trigger_job'
           vars:
             PROMOTE_TARGET: "'release'"
-            BUILD_TARGETS: "'build,build-baseimage,manifest,component-descriptor,publish,freeze-version'"
+            BUILD_TARGETS: "'build,manifest,component-descriptor,publish,freeze-version'"
+
+    update-job-image:
+      repo:
+        trigger: false
+      traits:
+        publish:
+          dockerimages:
+            job-image:
+              image: 'eu.gcr.io/gardener-project/glci/job-image'
+              dockerfile: 'Dockerfile'
+              tag_as_latest: true
+          release:
+            release_on_github: false
