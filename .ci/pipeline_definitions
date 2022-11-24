@@ -33,5 +33,7 @@ glci:
               image: 'eu.gcr.io/gardener-project/glci/job-image'
               dockerfile: 'Dockerfile'
               tag_as_latest: true
+          version:
+            versionfile: 'job-image-version'
           release:
             release_on_github: false
