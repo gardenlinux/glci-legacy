@@ -384,7 +384,7 @@ def enumerate_release_sets(
     bucket_name: str,
     prefix: str=glci.model.ReleaseManifestSet.release_manifest_set_prefix,
 ) -> typing.Generator[glci.model.ReleaseManifest, None, None]:
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=64)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=16)
     _release_manifest_set = functools.partial(
         release_manifest_set,
         s3_client=s3_client,
