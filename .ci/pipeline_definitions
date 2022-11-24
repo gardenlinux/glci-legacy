@@ -37,3 +37,4 @@ glci:
           versionfile: 'job-image-version'
         release:
           release_on_github: false
+        component_descriptor: ~
