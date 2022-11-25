@@ -69,10 +69,7 @@ def publish_image(
         publish_function = _publish_gcp_image
         cleanup_function = None
     elif release.platform == 'azure':
-        if cicd_cfg.publish.azure.shared_gallery_cfg_name:
-            publish_function = _publish_azure_shared_image_gallery
-        else:
-            publish_function = _publish_azure_image
+        publish_function = _publish_azure_image
         cleanup_function = None
     elif release.platform == 'openstack':
         publish_function = _publish_openstack_image
@@ -160,53 +157,7 @@ def _cleanup_aws(
         )
 
 
-def _publish_azure_image(release: glci.model.OnlineReleaseManifest,
-                       cicd_cfg: glci.model.CicdCfg,
-                       ) -> glci.model.OnlineReleaseManifest:
-    import glci.az
-    import glci.model
-    import ccc.aws
-    import ci.util
-
-    s3_client = ccc.aws.session(cicd_cfg.build.aws_cfg_name).client('s3')
-    cfg_factory = ci.util.ctx().cfg_factory()
-
-    service_principal_cfg = cfg_factory.azure_service_principal(
-        cicd_cfg.publish.azure.service_principal_cfg_name
-    )
-    service_principal_cfg_serialized = glci.model.AzureServicePrincipalCfg(
-        tenant_id=service_principal_cfg.tenant_id(),
-        client_id=service_principal_cfg.client_id(),
-        client_secret=service_principal_cfg.client_secret(),
-        subscription_id=service_principal_cfg.subscription_id(),
-    )
-    storage_account_cfg = cfg_factory.azure_storage_account(
-        cicd_cfg.publish.azure.storage_account_cfg_name
-    )
-    storage_account_cfg_serialized = glci.model.AzureStorageAccountCfg(
-        storage_account_name=storage_account_cfg.storage_account_name(),
-        access_key=storage_account_cfg.access_key(),
-        container_name=storage_account_cfg.container_name(),
-        container_name_sig=storage_account_cfg.container_name_sig(),
-    )
-
-    azure_marketplace_cfg = glci.model.AzureMarketplaceCfg(
-        publisher_id=cicd_cfg.publish.azure.publisher_id,
-        offer_id=cicd_cfg.publish.azure.offer_id,
-        plan_id=cicd_cfg.publish.azure.plan_id,
-    )
-
-    return glci.az.upload_and_publish_image(
-        s3_client,
-        service_principal_cfg=service_principal_cfg_serialized,
-        storage_account_cfg=storage_account_cfg_serialized,
-        marketplace_cfg=azure_marketplace_cfg,
-        release=release,
-        notification_emails=cicd_cfg.publish.azure.notification_emails,
-    )
-
-
-def _publish_azure_shared_image_gallery(
+def _publish_azure_image(
     release: glci.model.OnlineReleaseManifest,
     cicd_cfg: glci.model.CicdCfg,
 ) -> str:
@@ -254,7 +205,7 @@ def _publish_azure_shared_image_gallery(
         identifier_sku=shared_gallery_cfg.identifier_sku(),
     )
 
-    return glci.az.publish_azure_shared_image_gallery(
+    return glci.az.publish_azure_image(
         s3_client=s3_client,
         release=release,
         service_principal_cfg=azure_principal_serialized,

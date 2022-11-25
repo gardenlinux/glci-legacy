@@ -669,7 +669,7 @@ def _create_shared_image(
     return community_gallery_image_version
 
 
-def publish_azure_shared_image_gallery(
+def publish_azure_image(
     s3_client,
     release: glci.model.OnlineReleaseManifest,
     service_principal_cfg: glci.model.AzureServicePrincipalCfg,
@@ -717,7 +717,7 @@ def publish_azure_shared_image_gallery(
         target_blob_name=target_blob_name,
         with_sas_token=False,
     )
-    logger.info(f'publish_azure_shared_image_gallery() copied from S3 to Azure Storage: {image_url=}')
+    logger.info(f'copied from S3 to Azure Storage: {image_url=}')
 
     published_version = str(version.parse_to_semver(release.version))
     published_name = target_blob_name
