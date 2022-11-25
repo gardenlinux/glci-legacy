@@ -476,13 +476,22 @@ def canonical_features(platform: Platform, modifiers) -> typing.Tuple[FeatureDes
     )
 
 
-def canonical_name(platform: Platform, modifiers) -> str:
+def canonical_name(
+    platform: Platform,
+    modifiers,
+    architecture: Architecture|None=None,
+) -> str:
     '''Calculates the canonical name of a gardenlinux flavour.
 
     The canonical name consists of the minimal sorted set of features in the given flavour, as
     determined by bin/garden-feat, with the platform always being the first element.
     '''
-    return _garden_feat(platform=platform, modifiers=modifiers, cmd='cname')
+    cname = _garden_feat(platform=platform, modifiers=modifiers, cmd='cname')
+
+    if architecture:
+        cname = f'{cname}-{architecture.value}'
+
+    return cname
 
 
 @dataclasses.dataclass(frozen=True)
