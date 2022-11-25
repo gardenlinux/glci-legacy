@@ -39,4 +39,4 @@ glci:
         release:
           release_on_github: false
         component_descriptor:
-          component_name: 'github.com/gardenlinux/glci/utils
+          component_name: 'github.com/gardenlinux/glci/utils'
