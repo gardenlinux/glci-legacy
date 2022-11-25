@@ -155,7 +155,7 @@ def run_tests(
             template = Template(final_arg)
             pytest_args = template.substitute(platform=platform, architecture=architecture)
             pytest_arg_list = pytest_args.split()
-            pytest_arg_list.append(f"--pipeline")
+            pytest_arg_list.append("--pipeline")
             pytest_arg_list.append(f"--iaas={platform}")
             logger.info(f'Running integration tests with pytest args: {pytest_arg_list}')
             with pushd(repo_dir):

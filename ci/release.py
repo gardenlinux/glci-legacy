@@ -23,7 +23,7 @@ def ensure_target_branch_exists(
 
     is_first_release = minor == 0
 
-    gh_repo = github.github_repo(giturl=giturl)
+    gh_repo = glci.github.github_repo(giturl=giturl)
     repo = git_helper.repo
 
     release_branch_exists = release_branch in {b.name for b in gh_repo.branches()}
@@ -116,7 +116,7 @@ def main():
     release_version = parsed.release_version
     gardenlinux_epoch = int(release_version.split('.')[0])
 
-    git_helper = github.git_helper(giturl=parsed.giturl)
+    git_helper = glci.github.git_helper(giturl=parsed.giturl)
 
     release_branch = release_branch_name(gardenlinux_epoch=gardenlinux_epoch)
     release_committish = parsed.release_committish

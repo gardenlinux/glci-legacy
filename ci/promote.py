@@ -7,17 +7,12 @@ An example being the promotion of a build snapshot to a daily build.
 '''
 
 import argparse
-import concurrent.futures
 import functools
 import logging
 import logging.config
-import os
-import sys
-import typing
 
 import glci.util
 import glci.model
-import version
 
 glci.util.configure_logging()
 

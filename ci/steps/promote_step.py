@@ -1,4 +1,3 @@
-import dataclasses
 import os
 import sys
 import logging
@@ -7,7 +6,6 @@ import glci.model
 import glci.util
 import glci.s3
 import promote
-import version as version_util
 
 parsable_to_int = str
 

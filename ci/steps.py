@@ -1,10 +1,8 @@
-import base64
 import enum
 import logging
 import os
 import typing
 
-from git import Repo
 import params
 import results
 import tkn.model

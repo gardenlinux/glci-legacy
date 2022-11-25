@@ -236,36 +236,6 @@ def mk_pipeline_main_run(
     )
 
 
-def mk_limits(
-    name: str,
-):
-    limits = tkn.model.LimitRange(
-        metadata=tkn.model.Metadata(
-            name=name,
-        ),
-        spec=tkn.model.LimitSpec(
-            limits=[
-                tkn.model.Limits(
-                    type='Container',
-                    max=tkn.model.LimitObject(ephemeral_storage='128Gi'),
-                    min=tkn.model.LimitObject(ephemeral_storage='16Gi'),
-                    default=tkn.model.LimitObject(
-                        ephemeral_storage='128Gi',
-                        memory='24G',
-                        cpu=16.0,
-                    ),
-                    defaultRequest=tkn.model.LimitObject(
-                        ephemeral_storage='20Gi',
-                        memory='4G',
-                        cpu=1.0,
-                    ),
-                ),
-            ],
-        ),
-    )
-    return limits
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--committish', default='main')
@@ -298,9 +268,6 @@ def main():
 
     parsed = parser.parse_args()
     parsed.build_targets = set(parsed.build_targets)
-
-    limits = mk_limits(name='gardenlinux')
-    limits_dict = dataclasses.asdict(limits, dict_factory=tkn.model.limits_asdict_factory)
 
     build_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
 

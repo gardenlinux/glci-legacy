@@ -1,9 +1,6 @@
-import base64
 import logging
 import os
 import urllib.parse
-
-import git
 
 import ccc.github
 import gitutil
