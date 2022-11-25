@@ -3,18 +3,27 @@ import os
 own_dir = os.path.abspath(os.path.dirname(__file__))
 repo_root = os.path.abspath(os.path.join(own_dir, os.pardir))
 
-# TODO: This will only work for default parameters. Consider setting env-vars during
-# task render
-workspace_dir = os.path.abspath(os.path.join(repo_root, os.path.pardir))
-glci_dir = os.path.abspath(os.path.join(workspace_dir, 'glci_git'))
+parent_dir = os.path.abspath(os.path.join(repo_root, os.path.pardir))
 
 if os.environ.get('GARDENLINUX_PATH'):
     gardenlinux_dir = os.path.abspath(os.environ.get('GARDENLINUX_PATH'))
 else:
-    gardenlinux_dir = os.path.abspath(os.path.join(workspace_dir, 'gardenlinux_git'))
+    # hack: assume local user has a copy of gardenlinux-repo as sibling to this repo
+    gardenlinux_dir = os.path.join(parent_dir, 'gardenlinux')
+    gardenlinux_candidates = [gardenlinux_dir]
+
+    # fallback for tekton-case
+    if not os.path.isdir:
+        gardenlinux_dir = os.path.abspath(os.path.join(parent_dir, 'gardenlinux_git'))
+        gardenlinux_candidates.append(gardenlinux_dir)
+
+
+if not os.listdir(gardenlinux_dir):
+    print(f'ERROR: expected worktree of gardenlinux repo at {gardenlinux_candidates=}')
+    exit(1)
 
 cicd_cfg_path = os.path.join(own_dir, 'cicd.yaml')
 package_alias_path = os.path.join(own_dir, 'package_aliases.yaml')
 
-flavour_cfg_path = os.path.join(repo_root, 'flavours.yaml')
+flavour_cfg_path = os.path.join(gardenlinux_dir, 'flavours.yaml')
 version_path = os.path.join(repo_root, 'VERSION')
