@@ -99,7 +99,7 @@ def flavour_sets(
 def flavour_set(
     flavour_set_name: str,
     build_yaml: str=paths.flavour_cfg_path,
-):
+) -> GardenlinuxFlavourSet:
     for fs in flavour_sets(build_yaml=build_yaml):
         if fs.name == flavour_set_name:
             return fs
