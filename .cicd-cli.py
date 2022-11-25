@@ -396,6 +396,66 @@ def retrieve_release_set():
         )
 
 
+def ls_complete_manifest_sets():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--flavourset-name',
+        default='gardener',
+    )
+    parser.add_argument(
+        '--flavours-file',
+        default=None,
+    )
+    parser.add_argument(
+        '--version-prefix',
+        default=None,
+        help='if given, filter for versions of given prefix',
+    )
+
+    parsed = parser.parse_args()
+
+    if parsed.flavours_file:
+        flavours_path = parsed.flavours_file
+    else:
+        flavours_path = paths.flavour_cfg_path
+
+    flavour_set = glci.util.flavour_set(
+        flavour_set_name=parsed.flavourset_name,
+        build_yaml=flavours_path,
+    )
+
+    flavours = tuple(flavour_set.flavours())
+
+    def iter_manifest_prefixes():
+        key_prefix = glci.model.ReleaseIdentifier.manifest_key_prefix
+        version_prefix = parsed.version_prefix
+
+        for f in flavours:
+            cname = glci.model.canonical_name(
+                platform=f.platform,
+                modifiers=f.modifiers,
+                architecture=f.architecture,
+            )
+            prefix = f'{key_prefix}/{cname}'
+
+            if version_prefix:
+                prefix = f'{prefix}-{version_prefix}'
+
+            yield prefix
+
+    cfg = glci.util.cicd_cfg()
+    s3_client = glci.s3.s3_client(cicd_cfg=cfg)
+
+    for prefix in iter_manifest_prefixes():
+        matching_manifests = s3_client.list_objects_v2(
+            Bucket=cfg.build.s3_bucket_name,
+            Prefix=prefix,
+        )
+        for entry in matching_manifests['Contents']:
+            print(entry['Key'])
+
+
 def main():
     cmd_name = os.path.basename(sys.argv[0]).replace('-', '_')
 
