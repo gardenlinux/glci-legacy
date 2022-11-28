@@ -1,0 +1,11 @@
+- name: 'default'
+  buildresult_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux'
+    - name: 'replica-cn'
+      role: 'replica'
+      bucket_name: 'gardenlinux'
+      aws_cfg_name: 'gardenlinux-cn'
+      platforms: ['aws']

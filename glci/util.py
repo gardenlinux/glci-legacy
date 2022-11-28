@@ -24,6 +24,7 @@ GardenlinuxFlavourCombination = glci.model.GardenlinuxFlavourCombination
 Architecture = glci.model.Architecture
 
 CicdCfg = glci.model.CicdCfg
+PublishingCfg = glci.model.PublishingCfg
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,25 @@ def configure_logging():
         },
     }
     logging.config.dictConfig(cfg)
+
+
+def publishing_cfg(
+    cfg_name: str='default',
+    cfg_file=paths.publishing_cfg_path,
+) -> PublishingCfg:
+    with open(cfg_file) as f:
+        parsed = yaml.safe_load(f)
+
+    for cfg in parsed:
+        cfg = dacite.from_dict(
+            data_class=PublishingCfg,
+            data=cfg,
+            config=dacite.Config(cast=(enum.Enum,)),
+        )
+        if cfg.name == cfg_name:
+            return cfg
+    else:
+        raise ValueError(f'not found: {cfg_name=}')
 
 
 def cicd_cfg(

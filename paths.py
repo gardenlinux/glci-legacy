@@ -20,6 +20,7 @@ if not os.listdir(gardenlinux_dir):
     exit(1)
 
 cicd_cfg_path = os.path.join(repo_root, 'cicd.yaml')
+publishing_cfg_path = os.path.join(repo_root, 'publishing-cfg.yaml')
 package_alias_path = os.path.join(repo_root, 'package_aliases.yaml')
 
 flavour_cfg_path = os.path.join(gardenlinux_dir, 'flavours.yaml')

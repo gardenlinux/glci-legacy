@@ -695,6 +695,39 @@ class CicdCfg:
     package_build: typing.Optional[PackageBuildCfg]
 
 
+class BucketRole(enum.Enum):
+    SOURCE = 'source'
+    REPLICA = 'replica'
+
+
+@dataclasses.dataclass
+class BuildresultS3Bucket:
+    name: str
+    role: BucketRole
+    bucket_name: str
+    aws_cfg_name: str
+    platforms: list[Platform] = None
+
+
+@dataclasses.dataclass
+class PublishingCfg:
+    name: str
+    buildresult_s3_buckets: list[BuildresultS3Bucket]
+
+    @property
+    def origin_buildresult_bucket(self) -> BuildresultS3Bucket:
+        for bucket in self.buildresult_s3_buckets:
+            if bucket.role is BucketRole.SOURCE:
+                return bucket
+        raise RuntimeError('did not find buildresult-bucket w/ role `source`')
+
+    @property
+    def replica_buildresult_buckets(self) -> typing.Generator[BuildresultS3Bucket, None, None]:
+        for bucket in self.buildresult_s3_buckets:
+            if bucket.role is BucketRole.REPLICA:
+                yield bucket
+
+
 epoch_date = datetime.datetime.fromisoformat('2020-04-01')
 
 # special version value - use "today" as gardenlinux epoch (depend on build-time)
