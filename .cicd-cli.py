@@ -4,12 +4,18 @@ import argparse
 import dataclasses
 import enum
 import io
+import logging
 import os
 import re
 import sys
 import yaml
 
+import replicate
+
 import ccc.aws
+import ctx
+
+logger = logging.getLogger('gardenlinux-cli')
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 ci_dir = os.path.join(own_dir, 'ci')
@@ -353,7 +359,7 @@ def retrieve_release_set():
     _retrieve_argparse(parser=parser)
     parser.add_argument(
         '--flavourset-name',
-        default='all',
+        default='gardener',
         help='Flavour set, see: https://github.com/gardenlinux/gardenlinux/blob/main/flavours.yaml'
         ' default: %(default)s',
     )
@@ -394,6 +400,69 @@ def retrieve_release_set():
             stream=f,
             Dumper=glci.util.EnumValueYamlDumper,
         )
+
+
+def replicate_blobs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cfg-name', default='default')
+    parser.add_argument(
+        '--flavourset-name',
+        default='gardener',
+    )
+    parser.add_argument(
+        '--flavours-file',
+        default=None,
+    )
+    parser.add_argument(
+        '--version',
+        default=None,
+    )
+    parser.add_argument(
+        '--commit',
+        default=None,
+    )
+
+    parsed = parser.parse_args()
+
+    cfg = glci.util.publishing_cfg(cfg_name=parsed.cfg_name)
+
+    if parsed.flavours_file:
+        flavours_path = parsed.flavours_file
+    else:
+        flavours_path = paths.flavour_cfg_path
+
+    flavour_set = glci.util.flavour_set(
+        flavour_set_name=parsed.flavourset_name,
+        build_yaml=flavours_path,
+    )
+
+    flavours = tuple(flavour_set.flavours())
+
+    s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
+    s3_client = s3_session.client('s3')
+
+    version = parsed.version
+
+    cfg_factory = ctx.cfg_factory()
+
+    release_manifests = tuple(
+        glci.util.find_releases(
+            s3_client=s3_client,
+            bucket_name=cfg.origin_buildresult_bucket.bucket_name,
+            flavour_set=flavour_set,
+            build_committish=parsed.commit,
+            version=version,
+            gardenlinux_epoch=int(version.split('.')[0]),
+        )
+    )
+
+    logger.info(f'found {len(release_manifests)=}')
+
+    replicate.replicate_image_blobs(
+        publishing_cfg=cfg,
+        release_manifests=release_manifests,
+        cfg_factory=cfg_factory,
+    )
 
 
 def ls_complete_manifest_sets():
