@@ -6,7 +6,6 @@ Promotes the specified build results (represented by build result manifests in S
 An example being the promotion of a build snapshot to a daily build.
 '''
 
-import argparse
 import functools
 import logging
 import logging.config
@@ -17,30 +16,6 @@ import glci.model
 glci.util.configure_logging()
 
 logger = logging.getLogger(__name__)
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--flavourset', default='all')
-    parser.add_argument('--committish')
-    parser.add_argument('--gardenlinux-epoch', type=int)
-    parser.add_argument(
-        '--build-targets',
-        type=lambda x: (glci.model.BuildTarget(v) for v in x.split(',')),
-        action='extend',
-        dest='build_targets',
-    )
-    parser.add_argument('--version', required=True)
-    parser.add_argument('--source', default='snapshots')
-    parser.add_argument(
-        '--target',
-        type=glci.model.BuildType,
-        default=glci.model.BuildType.SNAPSHOT
-    )
-    parser.add_argument('--cicd-cfg', default='default')
-    parser.add_argument('--allow-partial', default=False, action='store_true')
-
-    return parser.parse_args()
 
 
 def publish_image(
