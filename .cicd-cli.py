@@ -494,6 +494,10 @@ def ls_manifests():
         default=None,
         help='if given, filter for versions of given prefix',
     )
+    parser.add_argument(
+        '--print',
+        choices=('all', 'versions', 'versions-and-commits'),
+    )
 
     parsed = parser.parse_args()
 
@@ -520,13 +524,28 @@ def ls_manifests():
     cfg = glci.util.cicd_cfg()
     s3_client = glci.s3.s3_client(cicd_cfg=cfg)
 
+    versions = set()
+    versions_and_commits = set()
+
     for prefix in iter_manifest_prefixes():
         matching_manifests = s3_client.list_objects_v2(
             Bucket=cfg.build.s3_bucket_name,
             Prefix=prefix,
         )
         for entry in matching_manifests['Contents']:
-            print(entry['Key'])
+            key = entry['Key']
+            if parsed.print == 'all':
+                print(key)
+            else:
+                _, version, commit = key.rsplit('-', 2)
+                if not version in versions:
+                    versions.add(version)
+                    if parsed.print == 'versions':
+                        print(version)
+                if not (version, commit) in versions_and_commits:
+                    versions_and_commits.add((version, commit))
+                    if parsed.print == 'versions-and-commits':
+                        print(f'{version} {commit}')
 
 
 def publish_release_set():
