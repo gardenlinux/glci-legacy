@@ -132,7 +132,7 @@ class AlicloudImageMaker:
         self.acs_client.set_region_id(self.region)
 
     def _del_image(self, region, image_id):
-        logger.warning(f"Delete image {self.image_name}/{image_id} in region {region}")
+        logger.info(f"Delete image {self.image_name}/{image_id} in region {region}")
         self.acs_client.set_region_id(region)
         req = ModifyImageSharePermissionRequest.ModifyImageSharePermissionRequest()
         req.set_ImageId(image_id)
@@ -261,7 +261,7 @@ class AlicloudImageMaker:
         exist, image_id = self._check_image_existance(dest_region,
                                                       self.image_name)
         if exist:
-            logger.warn(
+            logger.info(
                 f"found {self.image_name=} already exists in {dest_region=}, {image_id=} skip copying"
             )
         else:
