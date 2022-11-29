@@ -125,7 +125,8 @@ class AlicloudImageMaker:
             )
             req = ModifyImageSharePermissionRequest.ModifyImageSharePermissionRequest()
             req.set_ImageId(image_id)
-            req.set_IsPublic(True)
+            if not req.get_IsPublic():
+                req.set_IsPublic(True)
             self.acs_client.do_action_with_exception(req)
 
         self.acs_client.set_region_id(self.region)
