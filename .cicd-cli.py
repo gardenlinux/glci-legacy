@@ -465,7 +465,7 @@ def replicate_blobs():
     )
 
 
-def ls_complete_manifest_sets():
+def ls_manifests():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
