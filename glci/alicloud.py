@@ -5,6 +5,7 @@ import json
 import logging
 import time
 
+import aliyunsdkcore.client
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkecs.request.v20140526 import CopyImageRequest
 from aliyunsdkecs.request.v20140526 import DeleteImageRequest
@@ -35,20 +36,20 @@ class AlicloudImageStatus(enum.Enum):
     def to_availbel_str_array() -> []:
         return [v.value for v in AlicloudImageStatus]
 
+
 class AlicloudImageMaker:
     def __init__(
         self,
         oss2_auth: oss2.Auth,
         acs_client: AcsClient,
         release: glci.model.OnlineReleaseManifest,
-        build_cfg: glci.model.BuildCfg,
+        publishing_cfg: glci.model.PublishingTargetAliyun,
     ):
         self.oss2_auth = oss2_auth
         self.acs_client = acs_client
         self.release = release
-        self.build_cfg = build_cfg
-        self.bucket_name = build_cfg.oss_bucket_name
-        self.region = build_cfg.alicloud_region
+        self.bucket_name =  publishing_cfg.oss_bucket_name
+        self.region = publishing_cfg.aliyun_region
         self.image_oss_key = f"gardenlinux-{self.release.version}.qcow2"
         self.image_name = f"gardenlinux-{self.release.canonical_release_manifest_key_suffix()}"
 
@@ -125,10 +126,17 @@ class AlicloudImageMaker:
             )
             req = ModifyImageSharePermissionRequest.ModifyImageSharePermissionRequest()
             req.set_ImageId(image_id)
-            if req.get_IsPublic():
-                logger.info('image was already shared -> skip')
-            req.set_IsPublic(True)
-            self.acs_client.do_action_with_exception(req)
+
+
+            try:
+                req.set_IsPublic(True)
+                self.acs_client.do_action_with_exception(req)
+            except aliyunsdkcore.client.ServerException as se:
+                if se.error_code == 'Image.Public' and 'is public' in se.message:
+                    logger.info('image was already published - skipping')
+                    continue
+                print(f'debug: {se=} {se.error_code=} {se.message=}')
+                raise se
 
         self.acs_client.set_region_id(self.region)
 

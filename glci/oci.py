@@ -255,14 +255,14 @@ def _flavour_identifier(
 
 def publish_image(
     release: glci.model.OnlineReleaseManifest,
-    publish_cfg: glci.model.OciPublishCfg,
+    publishing_cfg: glci.model.PublishingTargetOci,
     release_build: bool,
     oci_client,
     s3_client,
 ):
     flavour_identifier = _flavour_identifier(release.flavour())
     image_tag = f'{release.version}-{release.build_committish[:6]}-{flavour_identifier}'
-    image_reference = f'{publish_cfg.image_prefix}:{image_tag}'
+    image_reference = f'{publishing_cfg.image_prefix}:{image_tag}'
 
     additional_image_tags = []
     if release_build:

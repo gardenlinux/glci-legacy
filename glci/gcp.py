@@ -16,7 +16,7 @@ def upload_image_to_gcp_store(
     storage_client: google.cloud.storage.Client,
     s3_client,
     release: glci.model.OnlineReleaseManifest,
-    build_cfg: glci.model.BuildCfg,
+    publishing_cfg: glci.model.PublishingTargetGCP,
 ) -> google.cloud.storage.blob.Blob:
 
     gcp_release_artifact = glci.util.virtual_image_artifact_for_platform('gcp')
@@ -25,21 +25,23 @@ def upload_image_to_gcp_store(
     s3_bucket_name = gcp_release_artifact_path.s3_bucket_name
 
     image_blob_name = f'gardenlinux-{release.version}.tar.gz'
+    s3_bucket_name = release.s3_bucket
+    gcp_bucket_name = publishing_cfg.gcp_bucket_name
 
     # XXX: rather do streaming
     with tempfile.TemporaryFile() as tfh:
-        logger().info(f'downloading image from {build_cfg.s3_bucket_name=}')
+        logger().info(f'downloading image from {s3_bucket_name=}')
         s3_client.download_fileobj(
             Bucket=s3_bucket_name,
             Key=raw_image_key,
             Fileobj=tfh,
         )
-        logger().info(f'downloaded image from {build_cfg.s3_bucket_name=}')
+        logger().info(f'downloaded image from {s3_bucket_name=}')
 
         tfh.seek(0)
 
-        logger().info(f're-uploading image to gcp {build_cfg.gcp_bucket_name=} {image_blob_name=}')
-        gcp_bucket = storage_client.get_bucket(build_cfg.gcp_bucket_name)
+        logger().info(f're-uploading image to gcp {gcp_bucket_name=} {image_blob_name=}')
+        gcp_bucket = storage_client.get_bucket(gcp_bucket_name)
         image_blob = gcp_bucket.blob(image_blob_name)
         image_blob.upload_from_file(
             tfh,
@@ -54,7 +56,6 @@ def upload_image_from_gcp_store(
     image_blob: google.cloud.storage.blob.Blob,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
-    build_cfg: glci.model.BuildCfg,
 ) -> glci.model.OnlineReleaseManifest:
     image_name = f'gardenlinux-{release.canonical_release_manifest_key_suffix()}'.replace(
         '.', '-'
@@ -123,13 +124,13 @@ def upload_and_publish_image(
     compute_client,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
-    build_cfg: glci.model.BuildCfg,
+    publishing_cfg: glci.model.PublishingTargetGCP,
 ):
     image_blob = upload_image_to_gcp_store(
         storage_client=storage_client,
         s3_client=s3_client,
         release=release,
-        build_cfg=build_cfg,
+        publishing_cfg=publishing_cfg,
     )
 
     return upload_image_from_gcp_store(
@@ -137,5 +138,4 @@ def upload_and_publish_image(
         image_blob=image_blob,
         gcp_project_name=gcp_project_name,
         release=release,
-        build_cfg=build_cfg,
     )

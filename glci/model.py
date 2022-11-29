@@ -710,8 +710,16 @@ class BuildresultS3Bucket:
 
 
 @dataclasses.dataclass
+class PublishingTargetOci:
+    image_prefix: str
+    platform: Platform = 'oci' # should not overwrite
+
+
+@dataclasses.dataclass
 class PublishingTargetAliyun:
     aliyun_cfg_name: str
+    oss_bucket_name: str
+    aliyun_region: str
     platform: Platform = 'ali' # should not overwrite
 
 
@@ -730,6 +738,7 @@ class PublishingTargetAWS:
 @dataclasses.dataclass
 class PublishingTargetGCP:
     gcp_cfg_name: str
+    gcp_bucket_name: str
     platform: Platform = 'gcp' # should not overwrite
 
 
@@ -737,6 +746,7 @@ class PublishingTargetGCP:
 class PublishingTargetAzure:
     gallery_cfg_name: str
     storage_account_cfg_name: str
+    service_principal_cfg_name: str
     platform: Platform = 'azure' # should not overwrite
 
 

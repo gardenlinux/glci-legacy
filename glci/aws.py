@@ -353,11 +353,14 @@ def target_image_name_for_release(release: glci.model.OnlineReleaseManifest):
 
 
 def upload_and_register_gardenlinux_image(
-    publish_cfg: glci.model.AwsPublishCfg,
+    publishing_cfg: glci.model.PublishingTargetAWS,
     release: glci.model.OnlineReleaseManifest,
 ) -> glci.model.OnlineReleaseManifest:
     published_images = []
-    for aws_cfg_name in publish_cfg.aws_cfg_names:
+    for aws_cfg in publishing_cfg.aws_cfgs:
+        aws_cfg: glci.model.PublishingTargetAWSAccount
+        aws_cfg_name = aws_cfg.aws_cfg_name
+
         logger.info(
             f'Running AWS-Publication for aws-config {aws_cfg_name}.'
         )

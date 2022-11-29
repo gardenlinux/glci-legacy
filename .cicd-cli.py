@@ -7,10 +7,12 @@ import git
 import io
 import logging
 import os
+import pprint
 import re
 import sys
 import yaml
 
+import promote
 import replicate
 
 import ccc.aws
@@ -567,6 +569,24 @@ def publish_release_set():
         default='warn',
         help='behaviour upon absent publishing-cfg (see publishing-cfg.yaml)',
     )
+    parser.add_argument(
+        '--platform',
+        action='append',
+        dest='platforms',
+        default=[],
+        help='if set, only specified platforms will be published to (default: publish to all)',
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        default=False,
+        help='publish images, even if already present according to release-manifests',
+    )
+    parser.add_argument(
+        '--print-manifest',
+        action='store_true',
+        default=False,
+    )
 
     parsed = parser.parse_args()
 
@@ -618,10 +638,12 @@ def publish_release_set():
     s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
+    origin_buildresult_bucket = cfg.origin_buildresult_bucket
+
     release_manifests = tuple(
         glci.util.find_releases(
             s3_client=s3_client,
-            bucket_name=cfg.origin_buildresult_bucket.bucket_name,
+            bucket_name=origin_buildresult_bucket.bucket_name,
             flavour_set=flavour_set,
             build_committish=commit,
             version=version,
@@ -669,6 +691,10 @@ def publish_release_set():
     phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
 
     for manifest in release_manifests:
+        if parsed.platforms and not manifest.platform in parsed.platforms:
+            logger.info(f'skipping {manifest.platform} (filter was set via ARGV)')
+            continue
+
         name = manifest.release_identifier().canonical_release_manifest_key()
         phase_logger.info(name)
 
@@ -676,12 +702,34 @@ def publish_release_set():
         if not target_cfg: # we already validated above that user is okay to skip
             continue
 
+        if parsed.print_manifest:
+            pprint.pprint(manifest)
+
         if manifest.published_image_metadata:
-            phase_logger.info(' already published -> skipping publishing phase')
-            continue
+            if not parsed.force:
+                phase_logger.info('already published -> skipping publishing phase')
+                continue
+            else:
+                phase_logger.warning('force-publishing')
 
-        phase_logger.info(f' will publish image to {manifest.platform}')
+        phase_logger.info(f'will publish image to {manifest.platform}')
 
+        updated_manifest = promote.publish_image(
+            release=manifest,
+            publishing_cfg=cfg,
+        )
+
+        target = f'{origin_buildresult_bucket.bucket_name}/{manifest.s3_key}'
+        phase_logger.info(f'updating release-manifest at {target}')
+
+        glci.util.upload_release_manifest(
+            s3_client=s3_client,
+            bucket_name=origin_buildresult_bucket.bucket_name,
+            key=manifest.s3_key,
+            manifest=updated_manifest,
+        )
+
+        phase_logger.info(f'image publishing for {manifest.platform} succeeded')
 
 def main():
     cmd_name = os.path.basename(sys.argv[0]).replace('-', '_')

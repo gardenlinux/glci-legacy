@@ -11,6 +11,8 @@
       platforms: ['aws']
   targets:
     - platform: 'ali'
+      oss_bucket_name: 'gardenlinux-community'
+      aliyun_region: 'eu-central-1'
       aliyun_cfg_name: 'gardenlinux'
     - platform: 'aws'
       aws_cfgs:
@@ -24,6 +26,7 @@
     - platform: 'azure'
       gallery_cfg_name: 'gardenlinux-community-gallery'
       storage_account_cfg_name: 'gardenlinux-community-gallery'
+      service_principal_cfg_name: 'gardenlinux'
     - platform: 'openstack'
       environment_cfg_name: 'gardenlinux'
       image_properties_cfg_name: 'gardenlinux'
