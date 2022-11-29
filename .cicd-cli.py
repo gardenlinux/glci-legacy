@@ -525,6 +525,10 @@ def ls_complete_manifest_sets():
             print(entry['Key'])
 
 
+def publish_release_set():
+    pass
+
+
 def main():
     cmd_name = os.path.basename(sys.argv[0]).replace('-', '_')
 
