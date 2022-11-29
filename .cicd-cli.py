@@ -402,9 +402,7 @@ def retrieve_release_set():
         )
 
 
-def replicate_blobs():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg-name', default='default')
+def _add_flavourset_args(parser):
     parser.add_argument(
         '--flavourset-name',
         default='gardener',
@@ -413,6 +411,37 @@ def replicate_blobs():
         '--flavours-file',
         default=None,
     )
+
+
+def _flavourset(parsed):
+    if parsed.flavours_file:
+        flavours_path = parsed.flavours_file
+    else:
+        flavours_path = paths.flavour_cfg_path
+
+    flavour_set = glci.util.flavour_set(
+        flavour_set_name=parsed.flavourset_name,
+        build_yaml=flavours_path,
+    )
+
+    return flavour_set
+
+
+def _add_publishing_cfg_args(parser):
+    parser.add_argument('--cfg-name', default='default')
+
+
+def _publishing_cfg(parsed):
+    cfg = glci.util.publishing_cfg(cfg_name=parsed.cfg_name)
+
+    return cfg
+
+
+def replicate_blobs():
+    parser = argparse.ArgumentParser()
+    _add_flavourset_args(parser)
+    _add_publishing_cfg_args(parser)
+
     parser.add_argument(
         '--version',
         default=None,
@@ -424,18 +453,10 @@ def replicate_blobs():
 
     parsed = parser.parse_args()
 
-    cfg = glci.util.publishing_cfg(cfg_name=parsed.cfg_name)
+    cfg = _publishing_cfg(parsed)
 
-    if parsed.flavours_file:
-        flavours_path = parsed.flavours_file
-    else:
-        flavours_path = paths.flavour_cfg_path
 
-    flavour_set = glci.util.flavour_set(
-        flavour_set_name=parsed.flavourset_name,
-        build_yaml=flavours_path,
-    )
-
+    flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
 
     s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
@@ -468,14 +489,8 @@ def replicate_blobs():
 def ls_manifests():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        '--flavourset-name',
-        default='gardener',
-    )
-    parser.add_argument(
-        '--flavours-file',
-        default=None,
-    )
+    _add_flavourset_args(parser)
+
     parser.add_argument(
         '--version-prefix',
         default=None,
@@ -484,16 +499,7 @@ def ls_manifests():
 
     parsed = parser.parse_args()
 
-    if parsed.flavours_file:
-        flavours_path = parsed.flavours_file
-    else:
-        flavours_path = paths.flavour_cfg_path
-
-    flavour_set = glci.util.flavour_set(
-        flavour_set_name=parsed.flavourset_name,
-        build_yaml=flavours_path,
-    )
-
+    flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
 
     def iter_manifest_prefixes():
