@@ -20,8 +20,6 @@ import glci.gcp
 import glci.util
 import glci.model as gm
 
-glci.util.configure_logging()
-
 logger = logging.getLogger(__name__)
 
 
