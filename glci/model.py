@@ -710,9 +710,67 @@ class BuildresultS3Bucket:
 
 
 @dataclasses.dataclass
+class PublishingTargetAliyun:
+    aliyun_cfg_name: str
+    platform: Platform = 'ali' # should not overwrite
+
+
+@dataclasses.dataclass
+class PublishingTargetAWSAccount:
+    aws_cfg_name: str
+    buildresult_bucket: str
+
+
+@dataclasses.dataclass
+class PublishingTargetAWS:
+    aws_cfgs: list[PublishingTargetAWSAccount]
+    platform: Platform = 'aws' # should not overwrite
+
+
+@dataclasses.dataclass
+class PublishingTargetGCP:
+    gcp_cfg_name: str
+    platform: Platform = 'gcp' # should not overwrite
+
+
+@dataclasses.dataclass
+class PublishingTargetAzure:
+    gallery_cfg_name: str
+    storage_account_cfg_name: str
+    platform: Platform = 'azure' # should not overwrite
+
+
+@dataclasses.dataclass
+class PublishingTargetOpenstack:
+    environment_cfg_name: str
+    image_properties_cfg_name: str
+    platform: Platform = 'openstack' # should not overwrite
+
+
+@dataclasses.dataclass
 class PublishingCfg:
     name: str
     buildresult_s3_buckets: list[BuildresultS3Bucket]
+    targets: list[
+        typing.Union[
+            PublishingTargetAliyun,
+            PublishingTargetAWS,
+            PublishingTargetGCP,
+            PublishingTargetAzure,
+            PublishingTargetOpenstack,
+        ],
+        ...
+    ]
+
+    def target(self, platform: Platform, absent_ok=False):
+        for t in self.targets:
+            if t.platform == platform:
+                return t
+
+        if absent_ok:
+            return None
+
+        raise ValueError(f'no cfg for {platform=}')
 
     @property
     def origin_buildresult_bucket(self) -> BuildresultS3Bucket:

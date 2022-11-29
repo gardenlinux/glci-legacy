@@ -9,3 +9,21 @@
       bucket_name: 'gardenlinux'
       aws_cfg_name: 'gardenlinux-cn'
       platforms: ['aws']
+  targets:
+    - platform: 'ali'
+      aliyun_cfg_name: 'gardenlinux'
+    - platform: 'aws'
+      aws_cfgs:
+        - aws_cfg_name: 'gardenlinux'
+          buildresult_bucket: 'gardenlinux'
+        - aws_cfg_name: 'gardenlinux-cn'
+          buildresult_bucket: 'gardenlinux-cn'
+    - platform: 'gcp'
+      gcp_cfg_name: 'gardenlinux'
+      gcp_bucket_name: 'gardenlinux-images'
+    - platform: 'azure'
+      gallery_cfg_name: 'gardenlinux-community-gallery'
+      storage_account_cfg_name: 'gardenlinux-community-gallery'
+    - platform: 'openstack'
+      environment_cfg_name: 'gardenlinux'
+      image_properties_cfg_name: 'gardenlinux'

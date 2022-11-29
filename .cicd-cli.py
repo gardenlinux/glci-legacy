@@ -444,11 +444,9 @@ def replicate_blobs():
 
     parser.add_argument(
         '--version',
-        default=None,
     )
     parser.add_argument(
         '--commit',
-        default=None,
     )
 
     parsed = parser.parse_args()
@@ -532,7 +530,116 @@ def ls_manifests():
 
 
 def publish_release_set():
-    pass
+    parser = argparse.ArgumentParser(
+        description='run all sub-steps for publishing gardenlinux to all target hyperscalers',
+    )
+    _add_flavourset_args(parser)
+    _add_publishing_cfg_args(parser)
+
+    parser.add_argument(
+        '--version',
+    )
+    parser.add_argument(
+        '--commit',
+    )
+    parser.add_argument(
+        '--on-absent-cfg',
+        choices=('warn', 'fail'),
+        default='warn',
+        help='behaviour upon absent publishing-cfg (see publishing-cfg.yaml)',
+    )
+
+    parsed = parser.parse_args()
+
+    cfg = _publishing_cfg(parsed)
+    cfg_factory = ctx.cfg_factory()
+
+    flavour_set = _flavourset(parsed)
+    flavours = tuple(flavour_set.flavours())
+    version = parsed.version
+
+    logger.info(
+        f'Publishing gardenlinux {version}@{parsed.commit} ({flavour_set.name=})\n'
+    )
+
+    logger.info(
+        'phases to run:\n- ' + '\n- '.join((
+            'sync-images',
+            'publish-images',
+            'publish-component-descriptor',
+        ))
+    )
+    print()
+
+    def start_phase(name):
+        logger = logging.getLogger(name)
+        logger.info(20 * '=')
+        logger.info(f'Starting Phase {name}')
+        logger.info(20 * '=')
+        print()
+        return logger
+
+
+    def end_phase(name):
+        logger = logging.getLogger(name)
+        logger.info(20 * '=')
+        logger.info(f'End of Phase {name}')
+        logger.info(20 * '=')
+        print()
+
+    phase_logger = start_phase('sync-images')
+
+    s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
+    s3_client = s3_session.client('s3')
+
+    release_manifests = tuple(
+        glci.util.find_releases(
+            s3_client=s3_client,
+            bucket_name=cfg.origin_buildresult_bucket.bucket_name,
+            flavour_set=flavour_set,
+            build_committish=parsed.commit,
+            version=version,
+            gardenlinux_epoch=int(version.split('.')[0]),
+        )
+    )
+
+    phase_logger.info(f'found {len(release_manifests)=}')
+
+    replicate.replicate_image_blobs(
+        publishing_cfg=cfg,
+        release_manifests=release_manifests,
+        cfg_factory=cfg_factory,
+    )
+
+    end_phase('sync-images')
+
+    phase_logger = start_phase('publish-images')
+
+    for manifest in release_manifests:
+        name = manifest.release_identifier().canonical_release_manifest_key()
+        phase_logger.info(name)
+
+        target_cfg = cfg.target(platform=manifest.platform, absent_ok=True)
+        if not target_cfg:
+            if (on_absent := parsed.on_absent_cfg) == 'warn':
+                phase_logger.warning(
+                    f'no cfg for {manifest.platform=} - will NOT publish!'
+                )
+                continue
+            elif on_absent == 'fail':
+                phase_logger.fatal(
+                    f'no cfg for {manifest.platform=} - aborting'
+                )
+            else:
+                raise ValueError(ob_absent) # programming error
+
+        print(target_cfg)
+
+        if manifest.published_image_metadata:
+            phase_logger.info(' already published -> skipping publishing phase')
+            continue
+
+        phase_logger.info(f' will publish image to {manifest.platform}')
 
 
 def main():
