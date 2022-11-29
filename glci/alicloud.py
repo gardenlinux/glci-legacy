@@ -3,7 +3,6 @@ import datetime
 import enum
 import json
 import logging
-import tempfile
 import time
 
 from aliyunsdkcore.client import AcsClient
@@ -71,25 +70,21 @@ class AlicloudImageMaker:
             logger.info(f'blob already exists at {self.image_oss_key=} - skipping upload')
             return
 
-        with tempfile.TemporaryFile() as tfh:
-            # TODO: use streaming
-            s3_client.download_fileobj(
-                Bucket=s3_bucket_name,
-                Key=s3_bucket_key,
-                Fileobj=tfh,
-            )
-            tfh.seek(0)
-            logger.info(
-                f"downloaded image from s3 {s3_bucket_name}/{s3_bucket_key}"
-            )
+        blob = s3_client.get_object(
+            Bucket=s3_bucket_name,
+            Key=s3_bucket_key,
+        )['Body']
 
-            logger.info(
-                f"uploading to oss {self.bucket_name} {self.image_oss_key} in region {self.region}"
-            )
-            bucket.put_object(self.image_oss_key, tfh)
-            logger.info(
-                f"uploaded image to oss {self.bucket_name} {self.image_oss_key=}"
-            )
+        logger.info(f"downloaded image from s3 {s3_bucket_name}/{s3_bucket_key}")
+
+        logger.info(f"uploading to oss {self.bucket_name=} {self.image_oss_key=} in {self.region=}")
+
+        bucket.put_object(
+            key=self.image_oss_key,
+            data=blob
+        )
+
+        logger.info(f"uploaded image to oss {self.bucket_name} {self.image_oss_key=}")
 
     # Import image from OSS and then copy it to other regions
     def make_image(self) -> glci.model.OnlineReleaseManifest:
