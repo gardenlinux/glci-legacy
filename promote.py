@@ -58,8 +58,9 @@ def publish_image(
         raise
 
 
-def _publish_alicloud_image(release: glci.model.OnlineReleaseManifest,
-                            cicd_cfg: glci.model.CicdCfg,
+def _publish_alicloud_image(
+    release: glci.model.OnlineReleaseManifest,
+    cicd_cfg: glci.model.CicdCfg,
 ) -> glci.model.OnlineReleaseManifest:
     import ccc.alicloud
     import glci.model
@@ -79,8 +80,9 @@ def _publish_alicloud_image(release: glci.model.OnlineReleaseManifest,
     return maker.make_image()
 
 
-def _clean_alicloud_image(release: glci.model.OnlineReleaseManifest,
-                            cicd_cfg: glci.model.CicdCfg,
+def _clean_alicloud_image(
+    release: glci.model.OnlineReleaseManifest,
+    cicd_cfg: glci.model.CicdCfg,
 ) -> glci.model.OnlineReleaseManifest:
     import ccc.alicloud
     import glci.model
@@ -97,8 +99,9 @@ def _clean_alicloud_image(release: glci.model.OnlineReleaseManifest,
     return maker.delete_images()
 
 
-def _publish_aws_image(release: glci.model.OnlineReleaseManifest,
-                       cicd_cfg: glci.model.CicdCfg,
+def _publish_aws_image(
+    release: glci.model.OnlineReleaseManifest,
+    cicd_cfg: glci.model.CicdCfg,
 ) -> glci.model.OnlineReleaseManifest:
     import glci.aws
     return glci.aws.upload_and_register_gardenlinux_image(
@@ -179,9 +182,10 @@ def _publish_azure_image(
     )
 
 
-def _publish_gcp_image(release: glci.model.OnlineReleaseManifest,
-                       cicd_cfg: glci.model.CicdCfg,
-                       ) -> glci.model.OnlineReleaseManifest:
+def _publish_gcp_image(
+    release: glci.model.OnlineReleaseManifest,
+    cicd_cfg: glci.model.CicdCfg,
+) -> glci.model.OnlineReleaseManifest:
     import glci.gcp
     import ccc.aws
     import ccc.gcp
@@ -221,9 +225,10 @@ def _publish_oci_image(
     )
 
 
-def _publish_openstack_image(release: glci.model.OnlineReleaseManifest,
-                       cicd_cfg: glci.model.CicdCfg,
-                       ) -> glci.model.OnlineReleaseManifest:
+def _publish_openstack_image(
+    release: glci.model.OnlineReleaseManifest,
+    cicd_cfg: glci.model.CicdCfg,
+) -> glci.model.OnlineReleaseManifest:
     import glci.openstack_image
     import ccc.aws
     import ci.util
