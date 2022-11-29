@@ -61,6 +61,16 @@ class AlicloudImageMaker:
         s3_bucket_key = ali_release_artifact_path.s3_key
         s3_bucket_name = ali_release_artifact_path.s3_bucket_name
 
+        bucket = oss2.Bucket(
+            self.oss2_auth,
+            f"https://oss-{self.region}.aliyuncs.com",
+            self.bucket_name,
+        )
+
+        if bucket.object_exists(key=self.image_oss_key):
+            logger.info(f'blob already exists at {self.image_oss_key=} - skipping upload')
+            return
+
         with tempfile.TemporaryFile() as tfh:
             # TODO: use streaming
             s3_client.download_fileobj(
@@ -75,11 +85,6 @@ class AlicloudImageMaker:
 
             logger.info(
                 f"uploading to oss {self.bucket_name} {self.image_oss_key} in region {self.region}"
-            )
-            bucket = oss2.Bucket(
-                self.oss2_auth,
-                f"https://oss-{self.region}.aliyuncs.com",
-                self.bucket_name,
             )
             bucket.put_object(self.image_oss_key, tfh)
             logger.info(
