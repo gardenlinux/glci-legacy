@@ -3,6 +3,7 @@
 import argparse
 import dataclasses
 import enum
+import git
 import io
 import logging
 import os
@@ -115,7 +116,6 @@ def gardenlinux_timestamp():
 
 
 def _gitrepo():
-    import git
     repo = git.Repo(paths.repo_root)
     return repo
 
@@ -557,9 +557,16 @@ def publish_release_set():
     flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
     version = parsed.version
+    commit = parsed.commit
+
+    if len(commit) != 40:
+        repo = git.Repo(path=paths.gardenlinux_dir)
+        commit = repo.git.rev_parse(commit)
+        logger.info(f'expanded commit to {commit}')
+
 
     logger.info(
-        f'Publishing gardenlinux {version}@{parsed.commit} ({flavour_set.name=})\n'
+        f'Publishing gardenlinux {version}@{commit} ({flavour_set.name=})\n'
     )
 
     logger.info(
@@ -597,12 +604,20 @@ def publish_release_set():
             s3_client=s3_client,
             bucket_name=cfg.origin_buildresult_bucket.bucket_name,
             flavour_set=flavour_set,
-            build_committish=parsed.commit,
+            build_committish=commit,
             version=version,
             gardenlinux_epoch=int(version.split('.')[0]),
         )
     )
 
+    if not release_manifests:
+        phase_logger.fatal(
+            f'did not find any release-manifests for {version=} {commit=}',
+        )
+        phase_logger.fatal(
+            'hint: use `ls-manifests` command to find valid choices for version | commit'
+        )
+        exit(1)
     phase_logger.info(f'found {len(release_manifests)=}')
 
     replicate.replicate_image_blobs(
@@ -613,12 +628,11 @@ def publish_release_set():
 
     end_phase('sync-images')
 
-    phase_logger = start_phase('publish-images')
+    phase_logger = start_phase('publish-image')
+
+    phase_logger.info('validating publishing-cfg')
 
     for manifest in release_manifests:
-        name = manifest.release_identifier().canonical_release_manifest_key()
-        phase_logger.info(name)
-
         target_cfg = cfg.target(platform=manifest.platform, absent_ok=True)
         if not target_cfg:
             if (on_absent := parsed.on_absent_cfg) == 'warn':
@@ -633,7 +647,15 @@ def publish_release_set():
             else:
                 raise ValueError(ob_absent) # programming error
 
-        print(target_cfg)
+    phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
+
+    for manifest in release_manifests:
+        name = manifest.release_identifier().canonical_release_manifest_key()
+        phase_logger.info(name)
+
+        target_cfg = cfg.target(platform=manifest.platform, absent_ok=True)
+        if not target_cfg: # we already validated above that user is okay to skip
+            continue
 
         if manifest.published_image_metadata:
             phase_logger.info(' already published -> skipping publishing phase')
