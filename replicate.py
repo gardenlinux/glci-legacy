@@ -68,3 +68,10 @@ def replicate_image_blobs(
                 Bucket=target_bucket.bucket_name,
                 Key=image_blob_ref.s3_key,
             )
+
+            # make it world-readable (otherwise, vm-image-imports may fail)
+            s3_target_client.put_object_acl(
+                ACL='public-read',
+                Bucket=target_bucket.bucket_name,
+                Key=image_blob_ref.s3_key,
+            )
