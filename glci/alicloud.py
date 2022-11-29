@@ -166,7 +166,7 @@ class AlicloudImageMaker:
         exist, image_id = self._check_image_existance(self.region,
                                                       self.image_name)
         if exist:
-            logger.warn(
+            logger.info(
                 f"found image {self.image_name} already exists in region {self.region}, the id is {image_id}, skip importing"
             )
             self._wait_for_image(self.region, image_id)
