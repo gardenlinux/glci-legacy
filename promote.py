@@ -39,11 +39,6 @@ def parse_args():
     )
     parser.add_argument('--cicd-cfg', default='default')
     parser.add_argument('--allow-partial', default=False, action='store_true')
-    parser.add_argument('--azure-sig',
-        default=False,
-        action='store_true',
-        help='Test Azure Shared Image Gallery'
-    )
 
     return parser.parse_args()
 
