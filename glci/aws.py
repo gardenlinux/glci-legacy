@@ -369,23 +369,21 @@ def upload_and_register_gardenlinux_image(
         ec2_client = session.client('ec2')
         s3_client = session.client('s3')
 
+        aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
+        aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
         bucket_name = aws_release_artifact_path.s3_bucket_name
         # TODO: check path is actually S3_ReleaseFile
         raw_image_key = aws_release_artifact_path.s3_key
 
         # make blob public prior to importing (snapshot-import will otherwise break, e.g. if
         # bucket is not entirely configured to be public)
-        s3_client.pub_object_ac(
+        s3_client.put_object_acl(
             ACL='public-read',
             Bucket=bucket_name,
             Key=raw_image_key,
         )
 
         target_image_name = target_image_name_for_release(release=release)
-
-        aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
-        aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
-
 
         snapshot_task_id = import_snapshot(
             ec2_client=ec2_client,
