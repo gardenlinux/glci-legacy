@@ -498,6 +498,7 @@ def ls_manifests():
     )
     parser.add_argument(
         '--print',
+        default='all',
         choices=('all', 'versions', 'versions-and-commits'),
     )
 
