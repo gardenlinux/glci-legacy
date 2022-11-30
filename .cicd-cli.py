@@ -526,15 +526,15 @@ def ls_manifests():
 
             yield prefix
 
-    cfg = glci.util.cicd_cfg()
-    s3_client = glci.s3.s3_client(cicd_cfg=cfg)
+    cfg = glci.util.publishing_cfg()
+    s3_client = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
 
     versions = set()
     versions_and_commits = set()
 
     for prefix in iter_manifest_prefixes():
         matching_manifests = s3_client.list_objects_v2(
-            Bucket=cfg.build.s3_bucket_name,
+            Bucket=cfg.origin_buildresult_bucket.bucket_name,
             Prefix=prefix,
         )
         for entry in matching_manifests['Contents']:

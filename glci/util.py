@@ -487,9 +487,11 @@ def find_release_set(
 @functools.lru_cache
 def preconfigured(
     func: callable,
-    cicd_cfg: glci.model.CicdCfg=cicd_cfg(),
+    cicd_cfg=None
 ):
-    # depends on `gardener-cicd-base`
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=cicd_cfg()
+    # depends on `gardener-cicd-base` package
     try:
         import ccc.aws
     except ModuleNotFoundError:

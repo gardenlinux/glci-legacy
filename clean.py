@@ -14,13 +14,15 @@ logger = logging.getLogger(__name__)
 
 def clean_release_manifest_sets(
     max_age_days: int=14,
-    cicd_cfg: glci.model.CicdCfg=glci.util.cicd_cfg(),
+    cicd_cfg=None,
     prefix: str=os.path.join(
       glci.model.ReleaseManifestSet.release_manifest_set_prefix,
       glci.model.PipelineFlavour.SNAPSHOT.value,
     ),
     dry_run: bool=False,
 ):
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=glci.util.cicd_cfg()
     enumerate_release_sets = glci.util.preconfigured(
         glci.util.enumerate_release_sets,
         cicd_cfg=cicd_cfg,
@@ -68,10 +70,13 @@ def clean_release_manifest_sets(
 
 def clean_single_release_manifests(
     max_age_days: int=14,
-    cicd_cfg: glci.model.CicdCfg=glci.util.cicd_cfg(),
+    cicd_cfg=None,
     prefix: str=glci.model.ReleaseManifest.manifest_key_prefix,
     dry_run: bool=False,
 ):
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=glci.util.cicd_cfg()
+
     enumerate_releases = glci.util.preconfigured(
         glci.util.enumerate_releases,
         cicd_cfg=cicd_cfg,
@@ -105,9 +110,12 @@ def clean_single_release_manifests(
 
 
 def _enumerate_objects_from_single_release_manifests(
-    cicd_cfg: glci.model.CicdCfg=glci.util.cicd_cfg(),
+    cicd_cfg=None,
     prefix: str=glci.model.ReleaseManifest.manifest_key_prefix,
 ) -> typing.Generator[glci.model.S3_ReleaseFile, None, None]:
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=glci.util.cicd_cfg()
+
     enumerate_releases = glci.util.preconfigured(
         glci.util.enumerate_releases,
         cicd_cfg=cicd_cfg,
@@ -117,9 +125,12 @@ def _enumerate_objects_from_single_release_manifests(
 
 
 def _enumerate_objects_from_release_manifest_sets(
-    cicd_cfg: glci.model.CicdCfg=glci.util.cicd_cfg(),
+    cicd_cfg=None,
     prefix: str=glci.model.ReleaseManifestSet.release_manifest_set_prefix,
 ) -> typing.Generator[glci.model.S3_ReleaseFile, None, None]:
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=glci.util.cicd_cfg()
+
     enumerate_release_sets = glci.util.preconfigured(
         glci.util.enumerate_release_sets,
         cicd_cfg=cicd_cfg,
@@ -133,10 +144,13 @@ def _enumerate_objects_from_release_manifest_sets(
 
 
 def clean_orphaned_objects(
-    cicd_cfg: glci.model.CicdCfg=glci.util.cicd_cfg(),
+    cicd_cfg=None,
     prefix='objects',
     dry_run: bool=False,
 ):
+    if not cicd_cfg:
+        cicd_cfg = glci.model.CicdCfg=glci.util.cicd_cfg()
+
     all_objects = {
         object_descriptor for object_descriptor in
         itertools.chain(
