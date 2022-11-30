@@ -16,12 +16,11 @@ glci:
         path: 'gardenlinux/gardenlinux'
         branch: 'main'
       steps:
-        render_pipelines_and_trigger_job:
+        list-available-releases:
           execute:
-          - '../render_pipelines_and_trigger_job'
-          vars:
-            PROMOTE_TARGET: "'release'"
-            BUILD_TARGETS: "'build,manifest,component-descriptor,publish,freeze-version'"
+          - '../ls-manifests
+          - '--print'
+          - 'versions-and-commits'
 
     update-job-image:
       repo:
