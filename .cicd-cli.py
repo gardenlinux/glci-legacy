@@ -699,7 +699,7 @@ def publish_release_set():
             cfg_factory=cfg_factory,
         )
     else:
-        phase_logger('skipping sync-images (--skip-previous-phases')
+        phase_logger.info('skipping sync-images (--skip-previous-phases)')
 
     end_phase(phase_sync)
 
@@ -780,6 +780,12 @@ def publish_release_set():
         phase_logger.info('skipped image-publishing (--skip-previous-phases)')
 
     end_phase(phase_publish)
+
+    phase_logger = start_phase(phase_component_descriptor)
+
+    phase_logger.warning('not implemented, yet')
+
+    end_phase(phase_component_descriptor)
 
 
 def main():
