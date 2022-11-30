@@ -557,6 +557,10 @@ def publish_release_set():
     _add_flavourset_args(parser)
     _add_publishing_cfg_args(parser)
 
+    phase_sync = 'sync-images'
+    phase_publish = 'publish-images'
+    phase_component_descriptor = 'publish-component-descriptor'
+
     parser.add_argument(
         '--version',
     )
@@ -590,8 +594,18 @@ def publish_release_set():
     parser.add_argument(
         '--phase',
         default=None,
-        choices=('sync-images', 'publish-images', 'publish-component-descriptor'),
+        choices=(
+            phase_sync,
+            phase_publish,
+            phase_component_descriptor,
+        ),
         help='if set, only run until specified phase (default: run all)',
+    )
+    parser.add_argument(
+        '--skip-previous-phases',
+        action='store_true',
+        default=False,
+        help='if --phase is given, skip previous phases (for debugging purposes)',
     )
 
     parsed = parser.parse_args()
@@ -616,9 +630,9 @@ def publish_release_set():
 
     logger.info(
         'phases to run:\n- ' + '\n- '.join((
-            'sync-images',
-            'publish-images',
-            'publish-component-descriptor',
+            phase_sync,
+            phase_publish,
+            phase_component_descriptor,
         ))
     )
     print()
@@ -670,15 +684,26 @@ def publish_release_set():
         exit(1)
     phase_logger.info(f'found {len(release_manifests)=}')
 
-    replicate.replicate_image_blobs(
-        publishing_cfg=cfg,
-        release_manifests=release_manifests,
-        cfg_factory=cfg_factory,
-    )
+    if (skip_previous := parsed.skip_previous_phases) and (phase := parsed.phase):
+        if phase == phase_sync:
+            run_sync = True
+        else:
+            run_sync = False
+    else:
+        run_sync = True
 
-    end_phase('sync-images')
+    if run_sync:
+        replicate.replicate_image_blobs(
+            publishing_cfg=cfg,
+            release_manifests=release_manifests,
+            cfg_factory=cfg_factory,
+        )
+    else:
+        phase_logger('skipping sync-images (--skip-previous-phases')
 
-    phase_logger = start_phase('publish-image')
+    end_phase(phase_sync)
+
+    phase_logger = start_phase(phase_publish)
 
     phase_logger.info('validating publishing-cfg')
 
@@ -699,7 +724,18 @@ def publish_release_set():
 
     phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
 
+    if skip_previous and phase:
+        if phase == phase_publish:
+            run_publish = True
+        else:
+            run_publish = False
+    else:
+        run_publish = False
+
     for manifest in release_manifests:
+        if not run_publish:
+            continue
+
         if parsed.platforms and not manifest.platform in parsed.platforms:
             logger.info(f'skipping {manifest.platform} (filter was set via ARGV)')
             continue
@@ -739,6 +775,12 @@ def publish_release_set():
         )
 
         phase_logger.info(f'image publishing for {manifest.platform} succeeded')
+
+    if not run_publish:
+        phase_logger.info('skipped image-publishing (--skip-previous-phases)')
+
+    end_phase(phase_publish)
+
 
 def main():
     cmd_name = os.path.basename(sys.argv[0]).replace('-', '_')
