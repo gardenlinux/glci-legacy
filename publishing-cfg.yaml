@@ -9,6 +9,8 @@
       bucket_name: 'gardenlinux'
       aws_cfg_name: 'gardenlinux-cn'
       platforms: ['aws']
+  ocm:
+    component_repository_cfg_name: 'gardener-dev'
   targets:
     - platform: 'ali'
       oss_bucket_name: 'gardenlinux-community'

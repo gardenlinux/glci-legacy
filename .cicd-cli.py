@@ -12,8 +12,10 @@ import re
 import sys
 import yaml
 
+import component_descriptor as cd
 import promote
 import replicate
+import product.v2
 
 import ccc.aws
 import ctx
@@ -593,6 +595,11 @@ def publish_release_set():
         default=False,
     )
     parser.add_argument(
+        '--print-component-descriptor',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
         '--phase',
         default=None,
         choices=(
@@ -664,7 +671,7 @@ def publish_release_set():
 
     origin_buildresult_bucket = cfg.origin_buildresult_bucket
 
-    release_manifests = tuple(
+    release_manifests = list(
         glci.util.find_releases(
             s3_client=s3_client,
             bucket_name=origin_buildresult_bucket.bucket_name,
@@ -733,7 +740,7 @@ def publish_release_set():
     else:
         run_publish = False
 
-    for manifest in release_manifests:
+    for idx, manifest in enumerate(release_manifests):
         if not run_publish:
             continue
 
@@ -764,6 +771,7 @@ def publish_release_set():
             release=manifest,
             publishing_cfg=cfg,
         )
+        release_manifests[idx] = updated_manifest
 
         target = f'{origin_buildresult_bucket.bucket_name}/{manifest.s3_key}'
         phase_logger.info(f'updating release-manifest at {target}')
@@ -784,7 +792,27 @@ def publish_release_set():
 
     phase_logger = start_phase(phase_component_descriptor)
 
-    phase_logger.warning('not implemented, yet')
+    if parsed.platforms:
+        phase_logger.error('must not filter platforms if publishing component-descriptor')
+        phase_logger.error('component-descriptor is intended to always contain full release-set')
+        exit(1)
+
+    phase_logger.info('generating component-descriptor')
+    component_descriptor = cd.component_descriptor(
+        version=version,
+        commit=commit,
+        publishing_cfg=cfg,
+        release_manifests=release_manifests,
+        cfg_factory=cfg_factory,
+    )
+
+    if parsed.print_component_descriptor:
+        pprint.pprint(component_descriptor)
+
+    phase_logger.info('publishing component-descriptor')
+    product.v2.upload_component_descriptor_v2_to_oci_registry(
+        component_descriptor_v2=component_descriptor,
+    )
 
     end_phase(phase_component_descriptor)
 

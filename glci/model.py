@@ -758,9 +758,15 @@ class PublishingTargetOpenstack:
 
 
 @dataclasses.dataclass
+class OcmCfg:
+    component_repository_cfg_name: str
+
+
+@dataclasses.dataclass
 class PublishingCfg:
     name: str
     buildresult_s3_buckets: list[BuildresultS3Bucket]
+    ocm: OcmCfg
     targets: list[
         typing.Union[
             PublishingTargetAliyun,
