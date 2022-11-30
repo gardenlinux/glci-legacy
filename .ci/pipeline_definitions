@@ -18,7 +18,7 @@ glci:
       steps:
         list-available-releases:
           execute:
-          - '../ls-manifests
+          - '../ls-manifests'
           - '--print'
           - 'versions-and-commits'
 
