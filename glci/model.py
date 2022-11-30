@@ -808,6 +808,13 @@ class PublishingCfg:
                 yield bucket
 
 
+@dataclasses.dataclass
+class PublishingVersion:
+    name: str
+    version: str
+    commit: str
+
+
 epoch_date = datetime.datetime.fromisoformat('2020-04-01')
 
 # special version value - use "today" as gardenlinux epoch (depend on build-time)

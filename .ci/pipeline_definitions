@@ -34,10 +34,8 @@ glci:
         publish-gardenlinux-images:
           execute:
           - '../publish-release-set'
-          - '--version'
-          - '909.0'
-          - '--commit'
-          - 'eb4ba59'
+          - '--version-name'
+          - 'default'
           image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
 
     update-job-image:

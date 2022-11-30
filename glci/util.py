@@ -78,6 +78,24 @@ def publishing_cfg(
         raise ValueError(f'not found: {cfg_name=}')
 
 
+def publishing_version(
+    version_name: str='default',
+    version_file=paths.publishing_versions_path,
+) -> glci.model.PublishingVersion:
+    with open(version_file) as f:
+        parsed = yaml.safe_load(f)
+
+    for version_cfg in parsed:
+        version = dacite.from_dict(
+            data_class=glci.model.PublishingVersion,
+            data=version_cfg,
+        )
+        if version.name == version_name:
+            return version
+    else:
+        raise ValueError(f'{version_name=} not found in {version_file=}')
+
+
 def cicd_cfg(
     cfg_name: str='default',
     cfg_file=paths.cicd_cfg_path,

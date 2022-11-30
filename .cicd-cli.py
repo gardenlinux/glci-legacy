@@ -568,6 +568,9 @@ def publish_release_set():
         '--version',
     )
     parser.add_argument(
+        '--version-name',
+    )
+    parser.add_argument(
         '--commit',
     )
     parser.add_argument(
@@ -618,13 +621,30 @@ def publish_release_set():
 
     parsed = parser.parse_args()
 
+    if not bool(parsed.version) ^ bool(parsed.version_name):
+        logger.fatal('exactly one of --version, --version-name must be passed')
+        exit(1)
+
+    if not bool(parsed.commit) ^ bool(parsed.version_name):
+        logger.fatal('exactly one of --commit, --version-name must be passed')
+        exit(1)
+
+    if parsed.version:
+        version = parsed.version
+        commit = parsed.commit
+
+    if parsed.version_name:
+        publish_version = glci.util.publishing_version(
+            version_name=parsed.version_name,
+        )
+        version = publish_version.version
+        commit = publish_version.commit
+
     cfg = _publishing_cfg(parsed)
     cfg_factory = ctx.cfg_factory()
 
     flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
-    version = parsed.version
-    commit = parsed.commit
 
     if len(commit) != 40:
         repo = git.Repo(path=paths.gardenlinux_dir)
