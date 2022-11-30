@@ -7,7 +7,7 @@ glci:
             triggering_policy: 'never'
 
   jobs:
-    on-head-update:
+    helpers:
       repo:
         trigger: false
       repos:
@@ -21,6 +21,23 @@ glci:
           - '../ls-manifests'
           - '--print'
           - 'versions-and-commits'
+          image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
+    manual-release:
+      repo:
+        trigger: false
+      repos:
+      - name: 'GARDENLINUX'
+        cfg_name: 'github_com'
+        path: 'gardenlinux/gardenlinux'
+        branch: 'main'
+      steps:
+        publish-gardenlinux-images:
+          execute:
+          - '../publish-release-set'
+          - '--version'
+          - '909.0'
+          - '--commit'
+          - 'eb4ba59'
           image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
 
     update-job-image:
