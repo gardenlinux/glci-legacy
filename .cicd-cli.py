@@ -758,7 +758,7 @@ def publish_release_set():
         else:
             run_publish = False
     else:
-        run_publish = False
+        run_publish = True
 
     for idx, manifest in enumerate(release_manifests):
         if not run_publish:
