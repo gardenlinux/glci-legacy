@@ -782,6 +782,12 @@ class PublishingCfg:
 
         raise ValueError(f'no cfg for {platform=}')
 
+    def buildresult_bucket(self, name: str):
+        for bucket in self.buildresult_s3_buckets:
+            if bucket.name == name:
+                return bucket
+        raise ValueError(f'no buildresult-bucket {name=}')
+
     @property
     def origin_buildresult_bucket(self) -> BuildresultS3Bucket:
         for bucket in self.buildresult_s3_buckets:

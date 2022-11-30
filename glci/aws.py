@@ -353,11 +353,12 @@ def target_image_name_for_release(release: glci.model.OnlineReleaseManifest):
 
 
 def upload_and_register_gardenlinux_image(
-    publishing_cfg: glci.model.PublishingTargetAWS,
+    aws_publishing_cfg: glci.model.PublishingTargetAWS,
+    publishing_cfg: glci.model.PublishingCfg,
     release: glci.model.OnlineReleaseManifest,
 ) -> glci.model.OnlineReleaseManifest:
     published_images = []
-    for aws_cfg in publishing_cfg.aws_cfgs:
+    for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg: glci.model.PublishingTargetAWSAccount
         aws_cfg_name = aws_cfg.aws_cfg_name
 
@@ -371,7 +372,10 @@ def upload_and_register_gardenlinux_image(
 
         aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
         aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
-        bucket_name = aws_release_artifact_path.s3_bucket_name
+
+        bucket_cfg_name = publishing_cfg.buildresult_bucket(name=aws_cfg.buildresult_bucket)
+        bucket_name = bucket_cfg_name.bucket_name
+
         # TODO: check path is actually S3_ReleaseFile
         raw_image_key = aws_release_artifact_path.s3_key
 

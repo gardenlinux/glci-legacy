@@ -17,7 +17,7 @@
     - platform: 'aws'
       aws_cfgs:
         - aws_cfg_name: 'gardenlinux'
-          buildresult_bucket: 'gardenlinux'
+          buildresult_bucket: 'origin'
         - aws_cfg_name: 'gardenlinux-cn'
           buildresult_bucket: 'gardenlinux-cn'
     - platform: 'gcp'

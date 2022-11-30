@@ -119,7 +119,8 @@ def _publish_aws_image(
     aws_publishing_cfg: gm.PublishingTargetAWS = publishing_cfg.target(platform=release.platform)
 
     return glci.aws.upload_and_register_gardenlinux_image(
-        publishing_cfg=aws_publishing_cfg,
+        aws_publishing_cfg=aws_publishing_cfg,
+        publishing_cfg=publishing_cfg,
         release=release,
     )
 
