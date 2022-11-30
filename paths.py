@@ -8,14 +8,8 @@ if os.environ.get('GARDENLINUX_PATH'):
 else:
     # hack: assume local user has a copy of gardenlinux-repo as sibling to this repo
     gardenlinux_dir = os.path.join(parent_dir, 'gardenlinux')
-    gardenlinux_candidates = [gardenlinux_dir]
 
-    # fallback for tekton-case
-    if not os.path.isdir:
-        gardenlinux_dir = os.path.abspath(os.path.join(parent_dir, 'gardenlinux_git'))
-        gardenlinux_candidates.append(gardenlinux_dir)
-
-if not os.listdir(gardenlinux_dir):
+if not os.isdir(gardenlinux_dir):
     print(f'ERROR: expected worktree of gardenlinux repo at {gardenlinux_candidates=}')
     exit(1)
 
