@@ -21,6 +21,7 @@ glci:
           - '../ls-manifests'
           - '--print'
           - 'versions-and-commits'
+          image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
 
     update-job-image:
       repo:
