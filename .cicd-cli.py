@@ -587,6 +587,12 @@ def publish_release_set():
         action='store_true',
         default=False,
     )
+    parser.add_argument(
+        '--phase',
+        default=None,
+        choices=('sync-images', 'publish-images', 'publish-component-descriptor'),
+        help='if set, only run until specified phase (default: run all)',
+    )
 
     parsed = parser.parse_args()
 
@@ -632,6 +638,9 @@ def publish_release_set():
         logger.info(f'End of Phase {name}')
         logger.info(20 * '=')
         print()
+        if (phase := parsed.phase) and phase == name:
+            logger.info(f'will stop here, as {name} was passed as final phase via ARGV')
+            exit(0)
 
     phase_logger = start_phase('sync-images')
 
