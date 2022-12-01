@@ -3,6 +3,7 @@ import datetime
 import enum
 import json
 import logging
+import tempfile
 import time
 
 import aliyunsdkcore.client
@@ -72,19 +73,24 @@ class AlicloudImageMaker:
             logger.info(f'blob already exists at {self.image_oss_key=} - skipping upload')
             return
 
-        blob = s3_client.get_object(
-            Bucket=s3_bucket_name,
-            Key=s3_bucket_key,
-        )['Body']
+        with tempfile.TemporaryFile() as tf:
+            blob = s3_client.get_object(
+                Bucket=s3_bucket_name,
+                Key=s3_bucket_key,
+            )['Body']
 
-        logger.info(f"downloaded image from s3 {s3_bucket_name}/{s3_bucket_key}")
+            while chunk := blob.read(4096):
+                tf.write(chunk)
 
-        logger.info(f"uploading to oss {self.bucket_name=} {self.image_oss_key=} in {self.region=}")
+            tf.seek(0)
 
-        bucket.put_object(
-            key=self.image_oss_key,
-            data=blob
-        )
+            logger.info(f"downloaded image from s3 {s3_bucket_name}/{s3_bucket_key}")
+            logger.info(f"uploading to oss {self.bucket_name=} {self.image_oss_key=} {self.region=}")
+
+            bucket.put_object(
+                key=self.image_oss_key,
+                data=tf,
+            )
 
         logger.info(f"uploaded image to oss {self.bucket_name} {self.image_oss_key=}")
 
