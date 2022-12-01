@@ -29,36 +29,6 @@ PublishingCfg = glci.model.PublishingCfg
 logger = logging.getLogger(__name__)
 
 
-def configure_logging():
-    faulthandler.enable()
-    cfg = {
-        'version': 1,
-        'formatters': {
-            'default': {
-                'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-            },
-        },
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-                'formatter': 'default',
-                'level': logging.INFO,
-                'stream': 'ext://sys.stdout',
-            },
-        },
-        'root': {
-            'level': logging.DEBUG,
-            'handlers': ['console',],
-        },
-        'loggers': {
-            'googleapiclient.discovery_cache': {
-                'level': logging.ERROR,
-            },
-        },
-    }
-    logging.config.dictConfig(cfg)
-
-
 def publishing_cfg(
     cfg_name: str='default',
     cfg_file=paths.publishing_cfg_path,
