@@ -564,6 +564,8 @@ def publish_release_set():
     phase_publish = 'publish-images'
     phase_component_descriptor = 'publish-component-descriptor'
 
+    all_phases = phase_sync, phase_publish, phase_component_descriptor
+
     parser.add_argument(
         '--version',
     )
@@ -656,13 +658,25 @@ def publish_release_set():
         f'Publishing gardenlinux {version}@{commit} ({flavour_set.name=})\n'
     )
 
-    logger.info(
-        'phases to run:\n- ' + '\n- '.join((
-            phase_sync,
-            phase_publish,
-            phase_component_descriptor,
-        ))
-    )
+    if not (phase := parsed.phase):
+        phases_to_run = all_phases
+    else:
+        if phase == phase_sync:
+            phases_to_run = phase_sync,
+        elif phase == phase_publish:
+            if parsed.skip_previous_phases:
+                phases_to_run = phase_publish,
+            else:
+                phases_to_run = phase_sync, phase_publish
+        elif phase == phase_component_descriptor:
+            if parsed.skip_previous_phases:
+                phases_to_run = phase_component_descriptor,
+            else:
+                phases_to_run = all_phases
+        else:
+            raise NotImplementedError(phase)
+
+    logger.info('phases to run:\n- ' + '\n- '.join(phases_to_run))
     print()
 
     def start_phase(name):
@@ -712,13 +726,10 @@ def publish_release_set():
         exit(1)
     phase_logger.info(f'found {len(release_manifests)=}')
 
-    if (skip_previous := parsed.skip_previous_phases) and (phase := parsed.phase):
-        if phase == phase_sync:
-            run_sync = True
-        else:
-            run_sync = False
-    else:
+    if phase_sync in phases_to_run:
         run_sync = True
+    else:
+        run_sync = False
 
     if run_sync:
         replicate.replicate_image_blobs(
@@ -752,13 +763,10 @@ def publish_release_set():
 
     phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
 
-    if skip_previous and phase:
-        if phase == phase_publish:
-            run_publish = True
-        else:
-            run_publish = False
-    else:
+    if phase_publish in phases_to_run:
         run_publish = True
+    else:
+        run_publish = False
 
     for idx, manifest in enumerate(release_manifests):
         if not run_publish:
