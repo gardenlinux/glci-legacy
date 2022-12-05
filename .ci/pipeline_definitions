@@ -14,7 +14,7 @@ glci:
       - name: 'GARDENLINUX'
         cfg_name: 'github_com'
         path: 'gardenlinux/gardenlinux'
-        branch: 'main'
+        branch: 'rel-934'
       steps:
         list-available-releases:
           execute:
