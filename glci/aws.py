@@ -395,11 +395,15 @@ def upload_and_register_gardenlinux_image(
 
         target_image_name = target_image_name_for_release(release=release)
 
-        snapshot_task_id = import_snapshot(
-            ec2_client=ec2_client,
-            s3_bucket_name=bucket_name,
-            image_key=raw_image_key,
-        )
+        try:
+            snapshot_task_id = import_snapshot(
+                ec2_client=ec2_client,
+                s3_bucket_name=bucket_name,
+                image_key=raw_image_key,
+            )
+        except Exception as e:
+            logger.error(f'error {e} while trying to import snapshot')
+            logger.error(f'hint: check whether {bucket_name=} {raw_image_key=} is public')
         logger.info(f'started import {snapshot_task_id=}')
 
         snapshot_id = wait_for_snapshot_import(
