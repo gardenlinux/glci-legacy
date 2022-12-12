@@ -1,7 +1,9 @@
 import logging
+import tempfile
 import typing
 
 import botocore.exceptions
+import boto3.s3.transfer as bt
 
 import ccc.aws
 import model
@@ -53,21 +55,48 @@ def replicate_image_blobs(
                     raise ce # do not hide other kinds of errors
 
 
-            # XXX: we _might_ split stream to multiple targets; however, as of now there is only
-            # one single replication target, so skip this optimisation for now
-            body = s3_source_client.get_object(
-                Bucket=source_bucket.bucket_name,
-                Key=image_blob_ref.s3_key,
-            )['Body']
+            try:
+                # XXX: we _might_ split stream to multiple targets; however, as of now there is only
+                # one single replication target, so skip this optimisation for now
+                resp = s3_source_client.get_object(
+                    Bucket=source_bucket.bucket_name,
+                    Key=image_blob_ref.s3_key,
+                )
+                leng = resp['ContenLength']
+                body = resp['Body']
 
 
-            logger.info(f'uploading to {target_bucket.bucket_name=}, {image_blob_ref.s3_key=}')
-            logger.info('.. this may take a couple of minutes')
-            s3_target_client.upload_fileobj(
-                Fileobj=body,
-                Bucket=target_bucket.bucket_name,
-                Key=image_blob_ref.s3_key,
-            )
+                logger.info(f'uploading to {target_bucket.bucket_name=}, {image_blob_ref.s3_key=}')
+                logger.info('.. this may take a couple of minutes ({leng} octets)')
+                s3_target_client.upload_fileobj(
+                    Fileobj=body,
+                    Bucket=target_bucket.bucket_name,
+                    Key=image_blob_ref.s3_key,
+                    Config=bt.TransferConfig(
+                    ),
+                )
+            except Exception as e:
+                logger.warning(f'there was an error trying to replicate using streaming')
+                logger.info('falling back to tempfile-backed replication')
+
+                with tempfile.TemporaryFile() as tf:
+                    s3_source_client.download_fileobj(
+                        Bucket=source_bucket.bucket_name,
+                        Key=image_blob_ref.s3_key,
+                    )
+                    logger.info('downloaded to tempfile - now starting to upload (2nd attempt)')
+                    s3_target_client.upload_fileobj(
+                        Fileobj=body,
+                        Bucket=target_bucket.bucket_name,
+                        Key=image_blob_ref.s3_key,
+                        Config=bt.TransferConfig(
+                            num_download_attempts=20, # be very persistent before giving up
+                            # rationale: we sometimes see "sporadic"
+                            # connectivity issues when uploading through "great
+                            # chinese firewall"
+                        ),
+                    )
+
 
             # make it world-readable (otherwise, vm-image-imports may fail)
             s3_target_client.put_object_acl(
