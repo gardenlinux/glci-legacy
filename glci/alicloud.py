@@ -57,7 +57,7 @@ class AlicloudImageMaker:
     # copy image from S3 to OSS
     def cp_image_from_s3(self, s3_client):
 
-        ali_release_artifact = glci.util.virtual_image_artifact_for_platform('ali')
+        ali_release_artifact = glci.util.vm_image_artefact_for_platform('ali')
         ali_release_artifact_path = self.release.path_by_suffix(ali_release_artifact)
 
         s3_bucket_key = ali_release_artifact_path.s3_key

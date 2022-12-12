@@ -516,7 +516,7 @@ def upload_and_publish_image(
     Azure Marketplace offering and publish the offering.
     '''
 
-    azure_release_artifact = util.virtual_image_artifact_for_platform('azure')
+    azure_release_artifact = util.vm_image_artefact_for_platform('azure')
     azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
 
     # Copy image from s3 to Azure Storage Account
@@ -684,7 +684,7 @@ def publish_azure_image(
     )
 
     # Copy image from s3 to Azure Storage Account
-    azure_release_artifact = glci.util.virtual_image_artifact_for_platform('azure')
+    azure_release_artifact = glci.util.vm_image_artefact_for_platform('azure')
     azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
 
     cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id)

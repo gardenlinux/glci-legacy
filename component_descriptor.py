@@ -159,7 +159,7 @@ def virtual_machine_image_resource(
             ),
         )
 
-    image_file_suffix = glci.util.virtual_image_artifact_for_platform(release_manifest.platform)
+    image_file_suffix = glci.util.vm_image_artefact_for_platform(release_manifest.platform)
     image_file_path = release_manifest.path_by_suffix(image_file_suffix)
     resource_access = cm.S3Access(
         type=cm.AccessType.S3,

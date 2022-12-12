@@ -34,7 +34,7 @@ def replicate_image_blobs(
                 continue
 
             # hardcoded filtering: only replicate image-artefact (ignore anything else)
-            suffix = gu.virtual_image_artifact_for_platform(platform=manifest.platform)
+            suffix = gu.vm_image_artefact_for_platform(platform=manifest.platform)
             image_blob_ref =  manifest.path_by_suffix(suffix=suffix)
 
             try:

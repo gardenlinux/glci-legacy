@@ -370,7 +370,7 @@ def upload_and_register_gardenlinux_image(
         ec2_client = session.client('ec2')
         s3_client = session.client('s3')
 
-        aws_release_artifact = glci.util.virtual_image_artifact_for_platform('aws')
+        aws_release_artifact = glci.util.vm_image_artefact_for_platform('aws')
         aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
 
         bucket_cfg_name = publishing_cfg.buildresult_bucket(name=aws_cfg.buildresult_bucket)

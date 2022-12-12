@@ -124,7 +124,7 @@ def _transport_release_artifact(
         session = ccc.aws.session(aws_cfg=source_cfg_name)
         resource = session.resource('s3')
         s3_release_file = release_manifest.path_by_suffix(
-            glci.util.virtual_image_artifact_for_platform(platform)
+            glci.util.vm_image_artefact_for_platform(platform)
         )
         artefact_file_path = download_file(
             s3_resource=resource,

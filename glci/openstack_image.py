@@ -116,7 +116,7 @@ def upload_and_publish_image(
         'properties': image_properties,
     }
 
-    openstack_release_artifact = glci.util.virtual_image_artifact_for_platform('openstack')
+    openstack_release_artifact = glci.util.vm_image_artefact_for_platform('openstack')
     openstack_release_artifact_path = release.path_by_suffix(openstack_release_artifact)
 
     s3_image_url = s3_client.generate_presigned_url(

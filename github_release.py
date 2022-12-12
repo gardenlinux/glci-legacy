@@ -108,7 +108,7 @@ def make_release(
         return False
 
     platform = 'ali'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_ali, download_link_ali, ids_ali = _get_download_url(
         platform=platform,
         suffix=suffix,
@@ -121,7 +121,7 @@ def make_release(
     print(f'{ids_ali_formatted}')
 
     platform = 'aws'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_aws, download_link_aws, ids_aws = _get_download_url(
         platform=platform,
         suffix=suffix,
@@ -134,7 +134,7 @@ def make_release(
     print(f'{ids_aws_formatted}')
 
     platform = 'azure'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_azure, download_link_azure, id_azure = _get_download_url(
         platform=platform,
         suffix=suffix,
@@ -144,7 +144,7 @@ def make_release(
     print(f'Azure: name: {name_azure}, urL: {download_link_azure}, image-name: {id_azure}')
 
     platform = 'gcp'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_gcp, download_link_gcp, id_gcp = _get_download_url(
         platform=platform,
         suffix=suffix,
@@ -154,7 +154,7 @@ def make_release(
     print(f'GCP: name: {name_gcp}, url: {download_link_gcp}, image-name: {id_gcp}')
 
     platform = 'openstack'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_openstack, download_link_openstack, ids_openstack = _get_download_url(
         platform=platform,
         suffix=suffix,
@@ -164,7 +164,7 @@ def make_release(
     print(f'Openstack: name: {name_openstack}, url: {download_link_openstack}')
 
     platform = 'vmware'
-    suffix = glci.util.virtual_image_artifact_for_platform(platform)
+    suffix = glci.util.vm_image_artefact_for_platform(platform)
     name_vmware, download_link_vmware, ids_vmware = _get_download_url(
         platform=platform,
         suffix=suffix,

@@ -19,7 +19,7 @@ def upload_image_to_gcp_store(
     publishing_cfg: glci.model.PublishingTargetGCP,
 ) -> google.cloud.storage.blob.Blob:
 
-    gcp_release_artifact = glci.util.virtual_image_artifact_for_platform('gcp')
+    gcp_release_artifact = glci.util.vm_image_artefact_for_platform('gcp')
     gcp_release_artifact_path = release.path_by_suffix(gcp_release_artifact)
     raw_image_key = gcp_release_artifact_path.s3_key
     s3_bucket_name = gcp_release_artifact_path.s3_bucket_name

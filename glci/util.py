@@ -505,7 +505,7 @@ class EnumValueYamlDumper(yaml.SafeDumper):
         return super().represent_data(data)
 
 
-def virtual_image_artifact_for_platform(platform: glci.model.Platform) -> str:
+def vm_image_artefact_for_platform(platform: glci.model.Platform) -> str:
     # map each platform to the suffix/object that is of interest.
 
     platform_to_artifact_mapping = {
