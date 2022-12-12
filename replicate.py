@@ -83,6 +83,7 @@ def replicate_image_blobs(
                     s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
+                        Fileobj=tf,
                     )
                     logger.info('downloaded to tempfile - now starting to upload (2nd attempt)')
                     s3_target_client.upload_fileobj(
