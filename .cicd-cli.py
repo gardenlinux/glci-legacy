@@ -13,7 +13,7 @@ import sys
 import yaml
 
 import component_descriptor as cd
-import promote
+import publish
 import replicate
 import product.v2
 
@@ -795,7 +795,7 @@ def publish_release_set():
 
         phase_logger.info(f'will publish image to {manifest.platform}')
 
-        updated_manifest = promote.publish_image(
+        updated_manifest = publish.publish_image(
             release=manifest,
             publishing_cfg=cfg,
         )

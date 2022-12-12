@@ -5,7 +5,7 @@ import logging
 import glci.model
 import glci.util
 import glci.s3
-import promote
+import publish
 
 parsable_to_int = str
 
@@ -78,7 +78,7 @@ def promote_single_step(
                 platform=platform,
             )
 
-    new_manifest = promote.publish_image(
+    new_manifest = publish.publish_image(
         release=release_manifest,
         cicd_cfg=cicd_cfg,
     )
