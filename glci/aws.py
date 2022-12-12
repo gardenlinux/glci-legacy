@@ -4,6 +4,7 @@ import enum
 import logging
 import pprint
 import time
+import traceback
 import typing
 import functools
 
@@ -388,6 +389,8 @@ def upload_and_register_gardenlinux_image(
                 Key=raw_image_key,
             )
         except:
+            logger.warning('failed to set s3-blob to public - snapshot-import might fail')
+            traceback.print_exc()
             pass # ignore errors - import might still work
 
         target_image_name = target_image_name_for_release(release=release)
