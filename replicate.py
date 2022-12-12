@@ -67,7 +67,7 @@ def replicate_image_blobs(
 
 
                 logger.info(f'uploading to {target_bucket.bucket_name=}, {image_blob_ref.s3_key=}')
-                logger.info('.. this may take a couple of minutes ({leng} octets)')
+                logger.info(f'.. this may take a couple of minutes ({leng} octets)')
                 s3_target_client.upload_fileobj(
                     Fileobj=body,
                     Bucket=target_bucket.bucket_name,
