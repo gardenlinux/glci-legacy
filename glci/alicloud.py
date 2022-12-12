@@ -103,9 +103,9 @@ class AlicloudImageMaker:
         for region in other_regions:
             region_image_map[region] = self.copy_image(image_id, region)
 
-        for image, region in region_image_map.items():
-            self._wait_for_image(image, region)
-            logger.info(f"finished copying {image=} to {region=}")
+        for region, image_id in region_image_map.items():
+            self._wait_for_image(region, image_id)
+            logger.info(f"finished copying {image_id=} to {region=}")
 
         region_image_map[self.region] = image_id
 
