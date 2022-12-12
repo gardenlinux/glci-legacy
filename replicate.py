@@ -62,7 +62,7 @@ def replicate_image_blobs(
                     Bucket=source_bucket.bucket_name,
                     Key=image_blob_ref.s3_key,
                 )
-                leng = resp['ContenLength']
+                leng = resp['ContentLength']
                 body = resp['Body']
 
 
