@@ -194,6 +194,9 @@ def _publish_azure_image(
         service_principal_cfg=azure_principal_serialized,
         storage_account_cfg=storage_account_cfg_serialized,
         shared_gallery_cfg=shared_gallery_cfg_serialized,
+        marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
+        publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
+        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace,
     )
 
 
@@ -294,12 +297,15 @@ def _publish_openstack_image(
 
 def _cleanup_openstack_image(
     release: gm.OnlineReleaseManifest,
-    cicd_cfg: gm.CicdCfg,
     publishing_cfg: gm.PublishingCfg,
 ):
     import glci.openstack_image
     import ci.util
-
+    
+    openstack_publishing_cfg: gm.PublishingTargetOpenstack = publishing_cfg.target(
+        platform=release.platform,
+    )
+    
     cfg_factory = ci.util.ctx().cfg_factory()
     openstack_environments_cfg = cfg_factory.ccee(
         openstack_publishing_cfg.environment_cfg_name,
