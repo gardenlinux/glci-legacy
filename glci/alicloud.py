@@ -96,18 +96,18 @@ class AlicloudImageMaker:
 
     # Import image from OSS and then copy it to other regions
     def make_image(self) -> glci.model.OnlineReleaseManifest:
-        image_id = self.import_image()
+        source_image_id = self.import_image()
         other_regions = self._list_regions()
         logger.info(f"begin to copy image to {other_regions=}")
         region_image_map = {}
         for region in other_regions:
-            region_image_map[region] = self.copy_image(image_id, region)
+            region_image_map[region] = self.copy_image(source_image_id, region)
 
         for region, image_id in region_image_map.items():
             self._wait_for_image(region, image_id)
             logger.info(f"finished copying {image_id=} to {region=}")
 
-        region_image_map[self.region] = image_id
+        region_image_map[self.region] = source_image_id
 
         self._share_images(region_image_map)
 
@@ -132,7 +132,6 @@ class AlicloudImageMaker:
             )
             req = ModifyImageSharePermissionRequest.ModifyImageSharePermissionRequest()
             req.set_ImageId(image_id)
-
 
             try:
                 req.set_IsPublic(True)
