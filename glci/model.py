@@ -330,13 +330,32 @@ class AzureTransportState(enum.Enum):
     FAILED = 'failed'
 
 
+class AzureHyperVGeneration(enum.Enum):
+    V1 = 'V1'
+    V2 = 'V2'
+
+
 @dataclasses.dataclass(frozen=True)
 class AzurePublishedImage:
-    '''
-    AzurePublishedImage hold information about the publishing process of an image
-    to the Azure Marketplace.
+    published_marketplace_images: typing.List[AzureMarketplacePublishedImage]
+    published_gallery_images: typing.List[AzureImageGalleryPublishedImage]
 
-    transport_state reflect the current stage of the image in the publishing process.
+
+@dataclasses.dataclass(frozen=True)
+class AzureImageGalleryPublishedImage:
+    '''
+    AzureImageGalleryPublishedImage holds information about images that were
+    published to Azure Community Image Galleries.
+    '''
+    hyper_v_generation: AzureHyperVGeneration
+    community_gallery_image_id : typing.Optional[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class AzureMarketplacePublishedImage:
+    '''
+    AzureMarketplacePublishedImage hold information about the publishing process of an image
+    to the Azure Marketplace.
 
     urn is the image identfier used to spawn virtual machines with the image.
 
@@ -348,13 +367,10 @@ class AzurePublishedImage:
     to the Azure Marketplace. At the end of this process step the image is available
     in all Azure regions for general usage.
     '''
-
-    transport_state: AzureTransportState
+    hyper_v_generation: AzureHyperVGeneration
     publish_operation_id: str
     golive_operation_id: str
-    urn: typing.Optional[str]
-    community_gallery_image_id : typing.Optional[str]
-    id: typing.Optional[str]
+    urn: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -599,6 +615,7 @@ class AzureMarketplaceCfg:
     offer_id: str
     publisher_id: str
     plan_id: str
+    notification_emails: list[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -747,6 +764,9 @@ class PublishingTargetAzure:
     gallery_cfg_name: str
     storage_account_cfg_name: str
     service_principal_cfg_name: str
+    marketplace_cfg: AzureMarketplaceCfg
+    publish_to_marketplace: bool
+    publish_to_community_galleries: bool
     platform: Platform = 'azure' # should not overwrite
 
 

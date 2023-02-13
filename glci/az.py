@@ -134,22 +134,19 @@ class AzureImageStore:
             )
             offset += actual_cp_bytes
 
-    def get_image_url(self, image_name: str, with_sas_token: bool):
-        '''Generate an url optionally including sas token to access image in the store.'''
+    def get_image_url(self, image_name: str):
+        '''Generate an url and an sas token to access image in the store and return both.'''
         result_url = f'https://{self.sa_name}.blob.core.windows.net/{self.container_name}/{image_name}'
 
-        if with_sas_token:
-            container_sas = generate_container_sas(
-                account_name=self.sa_name,
-                account_key=self.sa_key,
-                container_name=self.container_name,
-                permission=ContainerSasPermissions(read=True, list=True),
-                start=datetime.utcnow() - timedelta(days=1),
-                expiry=datetime.utcnow() + timedelta(days=30)
-            )
-            return f'{result_url}?{container_sas}'
-        else:
-            return result_url
+        container_sas = generate_container_sas(
+            account_name=self.sa_name,
+            account_key=self.sa_key,
+            container_name=self.container_name,
+            permission=ContainerSasPermissions(read=True, list=True),
+            start=datetime.utcnow() - timedelta(days=1),
+            expiry=datetime.utcnow() + timedelta(days=30)
+        )
+        return result_url, container_sas
 
 
 class AzmpOperationState(Enum):
@@ -261,9 +258,8 @@ class AzureMarketplaceClient:
         for operation in operations:
             if AzmpTransportDest(operation["slot"]) == transport_dest and AzmpOperationState(operation["submissionState"]) == AzmpOperationState.RUNNING:
                 return operation["id"]
-        raise RuntimeError(
-            'Did not find an ongoing transport operation to ship gardenliunx offer on the Azure Marketplace.'
-        )
+        logger.warning("Did not find an ongoing transport operation to ship Garden Linux offer on the Azure Marketplace.")
+        return "undefined"
 
     def fetch_operation_state(self, publisher_id: str, offer_id: str, operation_id: str):
         '''Fetches the state of a given Azure Marketplace transport operation.'''
@@ -343,7 +339,6 @@ def copy_image_from_s3_to_az_storage_account(
     s3_object_key: str,
     target_blob_name: str,
     s3_client,
-    with_sas_token: bool,
 ):
     ''' copy object from s3 to storage account and return the generated access url including SAS token
     for the blob
@@ -367,7 +362,7 @@ def copy_image_from_s3_to_az_storage_account(
         target_blob_name=target_blob_name,
     )
 
-    return store.get_image_url(target_blob_name, with_sas_token=with_sas_token)
+    return store.get_image_url(target_blob_name)
 
 
 def update_and_publish_marketplace_offer(
@@ -375,7 +370,6 @@ def update_and_publish_marketplace_offer(
     marketplace_cfg: glci.model.AzureMarketplaceCfg,
     image_version: str,
     image_url: str,
-    notification_recipients=(),
 ):
 
     marketplace_client = AzureMarketplaceClient(
@@ -411,7 +405,7 @@ def update_and_publish_marketplace_offer(
     marketplace_client.publish_offer(
         publisher_id=publisher_id,
         offer_id=offer_id,
-        notification_mails=notification_recipients,
+        notification_mails=marketplace_cfg.notification_emails,
     )
 
     publish_operation_id = marketplace_client.fetch_ongoing_operation_id(
@@ -501,57 +495,16 @@ def check_offer_transport_state(
     logger.info(f"Gardenlinux Azure Marketplace release op {transport_state} is still ongoing...")
     return release
 
-def _get_target_blob_name(version: str):
+def _get_target_blob_name(version: str, generation: glci.model.AzureHyperVGeneration = None):
+    if generation and generation == glci.model.AzureHyperVGeneration.V2:
+        return f"gardenlinux-az-{version}-gen2.vhd"
     return f"gardenlinux-az-{version}.vhd"
 
-def upload_and_publish_image(
-    s3_client,
-    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
-    storage_account_cfg: glci.model.AzureStorageAccountCfg,
-    marketplace_cfg: glci.model.AzureMarketplaceCfg,
-    release: glci.model.OnlineReleaseManifest,
-    notification_emails: typing.Tuple[str, ...],
-) -> glci.model.OnlineReleaseManifest:
-    '''Copies an image from S3 to an Azure Storage Account, updates the corresponding
-    Azure Marketplace offering and publish the offering.
-    '''
 
-    azure_release_artifact = util.vm_image_artefact_for_platform('azure')
-    azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
-
-    # Copy image from s3 to Azure Storage Account
-    target_blob_name = _get_target_blob_name(release.version)
-    image_url = copy_image_from_s3_to_az_storage_account(
-        storage_account_cfg=storage_account_cfg,
-        s3_client=s3_client,
-        s3_bucket_name=azure_release_artifact_path.s3_bucket_name,
-        s3_object_key=azure_release_artifact_path.s3_key,
-        target_blob_name=target_blob_name,
-        with_sas_token=True,
-    )
-
-    # version _must_ (of course..) be strict semver for azure
-    azure_version = str(version.parse_to_semver(release.version))
-
-    # Update Marketplace offer and start publishing.
-    publish_operation_id = update_and_publish_marketplace_offer(
-        service_principal_cfg=service_principal_cfg,
-        marketplace_cfg=marketplace_cfg,
-        image_version=azure_version,
-        image_url=image_url,
-        notification_recipients=notification_emails,
-    )
-
-    # use anticipated URN for now
-    parsed_version = version_util.parse_to_semver(release.version)
-    published_image = glci.model.AzurePublishedImage(
-        transport_state=glci.model.AzureTransportState.PUBLISH,
-        publish_operation_id=publish_operation_id,
-        golive_operation_id='',
-        urn=generate_urn(marketplace_cfg, parsed_version),
-    )
-
-    return dataclasses.replace(release, published_image_metadata=published_image)
+def _append_hyper_v_generation(s: str, generation: glci.model.AzureHyperVGeneration = None):
+    if generation and generation == glci.model.AzureHyperVGeneration.V2:
+        return f"{s}-gen2"
+    return s
 
 
 def _create_shared_image(
@@ -564,13 +517,16 @@ def _create_shared_image(
     gallery_name: str,
     image_name: str,
     image_version: str,
+    hyper_v_generation: glci.model.AzureHyperVGeneration,
     source_id: str
 ) -> CommunityGalleryImageVersion:
-    logger.info('Create Gallery image.')
+    image_definition_name=_append_hyper_v_generation(image_name, hyper_v_generation)
+
+    logger.info(f'Creating gallery image definition {image_definition_name=}...')
     result = cclient.gallery_images.begin_create_or_update(
         resource_group_name=resource_group_name,
         gallery_name=gallery_name,
-        gallery_image_name=image_name,
+        gallery_image_name=image_definition_name,
         gallery_image=GalleryImage(
             location=location,
             description=shared_gallery_cfg.description,
@@ -578,11 +534,11 @@ def _create_shared_image(
             release_note_uri=shared_gallery_cfg.release_note_uri,
             os_type=OperatingSystemTypes.LINUX,
             os_state=OperatingSystemStateTypes.GENERALIZED,
-            hyper_v_generation=HyperVGeneration.V1,
+            hyper_v_generation=HyperVGeneration(hyper_v_generation.value),
             identifier=GalleryImageIdentifier(
                 publisher=shared_gallery_cfg.identifier_publisher,
                 offer=shared_gallery_cfg.identifier_offer,
-                sku=shared_gallery_cfg.identifier_sku,
+                sku=_append_hyper_v_generation(shared_gallery_cfg.identifier_sku, hyper_v_generation),
             )
         )
     )
@@ -606,11 +562,11 @@ def _create_shared_image(
     regions.remove('uaecentral')
 
 
-    logger.info(f'Create Gallery image version {image_version=}')
+    logger.info(f'Creating gallery image version {image_version=}')
     result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
         resource_group_name=resource_group_name,
         gallery_name=gallery_name,
-        gallery_image_name=image_name,
+        gallery_image_name=image_definition_name,
         gallery_image_version_name=image_version,
         gallery_image_version=GalleryImageVersion(
             location=location,
@@ -636,7 +592,7 @@ def _create_shared_image(
             )
         )
     )
-    print('...waiting for asynchronous operation to complete')
+    logger.info('...waiting for asynchronous operation to complete')
     image_version: GalleryImageVersion = result.result()
 
     # The creation above resulted in a GalleryImageVersion, which seems to be a supertype of both
@@ -660,7 +616,7 @@ def _create_shared_image(
 
     community_gallery_image_version = cclient.community_gallery_image_versions.get(
         public_gallery_name=public_gallery_name,
-        gallery_image_name=image_name, # not obtainable from the created GalleryImageVersion
+        gallery_image_name=image_definition_name, # not obtainable from the created GalleryImageVersion
         gallery_image_version_name=image_version.name,  # yes, the name is the version since
                                                         # we have a GalleryImageVersion here
         location=image_version.location,
@@ -669,60 +625,22 @@ def _create_shared_image(
     return community_gallery_image_version
 
 
-def publish_azure_image(
-    s3_client,
+def publish_to_azure_community_gallery(
+    image_url: str,
     release: glci.model.OnlineReleaseManifest,
-    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
-    storage_account_cfg: glci.model.AzureStorageAccountCfg,
+    published_version: str,
+    hyper_v_generation: glci.model.AzureHyperVGeneration,
+    credential: ClientSecretCredential,
+    subscription_id : str,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
-) -> glci.model.OnlineReleaseManifest:
+) -> glci.model.AzureImageGalleryPublishedImage:
 
-    credential = ClientSecretCredential(
-        tenant_id=service_principal_cfg.tenant_id,
-        client_id=service_principal_cfg.client_id,
-        client_secret=service_principal_cfg.client_secret
-    )
-
-    # Copy image from s3 to Azure Storage Account
-    azure_release_artifact = glci.util.vm_image_artefact_for_platform('azure')
-    azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
-
-    cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id)
-    sclient = StorageManagementClient(credential, service_principal_cfg.subscription_id)
+    cclient = ComputeManagementClient(credential, subscription_id)
     sbclient = SubscriptionClient(credential)
 
-    logger.info(f'using container name: {storage_account_cfg.container_name_sig=}')
+    published_name = _get_target_blob_name(release.version, hyper_v_generation)
 
-    # prepare a blob container suitable for Shared Image Gallery
-    try:
-        sclient.blob_containers.create(
-            resource_group_name=shared_gallery_cfg.resource_group_name,
-            account_name=storage_account_cfg.storage_account_name,
-            container_name=storage_account_cfg.container_name_sig,
-            blob_container={
-                'public_access': 'None'
-            }
-        )
-    except ResourceExistsError:
-        logger.info(f'Info: blob container {storage_account_cfg.container_name} already exists.')
-
-    target_blob_name = _get_target_blob_name(release.version)
-
-    logger.info(f'Copying from S3 to Azure Storage Account blob: {target_blob_name=}')
-    image_url = copy_image_from_s3_to_az_storage_account(
-        storage_account_cfg=storage_account_cfg,
-        s3_client=s3_client,
-        s3_bucket_name=azure_release_artifact_path.s3_bucket_name,
-        s3_object_key=azure_release_artifact_path.s3_key,
-        target_blob_name=target_blob_name,
-        with_sas_token=False,
-    )
-    logger.info(f'copied from S3 to Azure Storage: {image_url=}')
-
-    published_version = str(version.parse_to_semver(release.version))
-    published_name = target_blob_name
-
-    logger.info(f'Create image {published_name=}')
+    logger.info(f'Create community gallery image {published_name=} for Hyper-V generation {hyper_v_generation}')
 
     # Note: cclient.images.begin_create_or_update() can update an existing resource. However not all
     # properties can be updated. Especially updating image_url fails with an error.
@@ -747,7 +665,7 @@ def publish_azure_image(
             image_name=published_name,
             parameters={
                 'location': shared_gallery_cfg.location,
-                'hyper_v_generation': 'V1',
+                'hyper_v_generation': HyperVGeneration(hyper_v_generation.value),
                 'storage_profile': {
                     'os_disk': {
                         'os_type': 'Linux',
@@ -767,25 +685,148 @@ def publish_azure_image(
         sbclient=sbclient,
         shared_gallery_cfg=shared_gallery_cfg,
         resource_group_name=shared_gallery_cfg.resource_group_name,
-        subscription_id=service_principal_cfg.subscription_id,
+        subscription_id=subscription_id,
         location=shared_gallery_cfg.location,
         gallery_name=shared_gallery_cfg.gallery_name,
         image_name=shared_gallery_cfg.published_name,
         image_version=published_version,
+        hyper_v_generation=hyper_v_generation,
         source_id=result.id
     )
-    unique_id = shared_img.unique_id
 
+    unique_id = shared_img.unique_id
     logger.info(f'Image shared: {unique_id=}')
 
-    # create manifest and return this as result:
-    published_image = glci.model.AzurePublishedImage(
-        transport_state=glci.model.AzureTransportState.RELEASED,
-        publish_operation_id='',
-        golive_operation_id='',
+    community_gallery_published_image = glci.model.AzureImageGalleryPublishedImage(
+        hyper_v_generation=hyper_v_generation.value,
         community_gallery_image_id=unique_id,
-        urn='',
-        id='',
     )
+
+    return community_gallery_published_image
+
+
+def publish_to_azure_marketplace(
+    image_url: str,
+    sas_token: str,
+    published_version: str,
+    hyper_v_generation: glci.model.AzureHyperVGeneration,
+    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
+    marketplace_cfg: glci.model.AzureMarketplaceCfg,
+) -> glci.model.AzureMarketplacePublishedImage:
+    # for now, we only support Hyper-V generation V1 in Marketplace
+    if hyper_v_generation != glci.model.AzureHyperVGeneration.V1:
+        logger.warning(f"Publishing {hyper_v_generation} images to Azure Marketplace is currently not supported.")
+        return None
+
+    # uploading to marketplace requires an SAS token
+    image_url = f"{image_url}?{sas_token}"
+
+    # Update Marketplace offer and start publishing.
+    publish_operation_id = update_and_publish_marketplace_offer(
+        service_principal_cfg=service_principal_cfg,
+        marketplace_cfg=marketplace_cfg,
+        image_version=published_version,
+        image_url=image_url
+    )
+    logger.info(f"Azure Marketplace publish operation ID is {publish_operation_id}")
+
+    # use anticipated URN for now
+    urn=generate_urn(marketplace_cfg, published_version),
+    logger.info(f'Image shared on marketplace: {urn=}')
+
+    marketplace_published_image = glci.model.AzureMarketplacePublishedImage(
+        hyper_v_generation=hyper_v_generation.value,
+        publish_operation_id=publish_operation_id,
+        golive_operation_id='',
+        urn=urn
+    )
+
+    return marketplace_published_image
+
+
+def publish_azure_image(
+    s3_client,
+    release: glci.model.OnlineReleaseManifest,
+    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
+    storage_account_cfg: glci.model.AzureStorageAccountCfg,
+    shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
+    marketplace_cfg: glci.model.AzureMarketplaceCfg,
+    publish_to_community_gallery: bool = True,
+    publish_to_marketplace: bool = False,
+) -> glci.model.OnlineReleaseManifest:
+
+    credential = ClientSecretCredential(
+        tenant_id=service_principal_cfg.tenant_id,
+        client_id=service_principal_cfg.client_id,
+        client_secret=service_principal_cfg.client_secret
+    )
+
+    # Copy image from s3 to Azure Storage Account
+    azure_release_artifact = glci.util.vm_image_artefact_for_platform('azure')
+    azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
+
+    sclient = StorageManagementClient(credential, service_principal_cfg.subscription_id)
+
+    logger.info(f'using container name: {storage_account_cfg.container_name_sig=}')
+
+    # prepare a blob container suitable for Shared Image Gallery
+    try:
+        sclient.blob_containers.create(
+            resource_group_name=shared_gallery_cfg.resource_group_name,
+            account_name=storage_account_cfg.storage_account_name,
+            container_name=storage_account_cfg.container_name_sig,
+            blob_container={
+                'public_access': 'None'
+            }
+        )
+    except ResourceExistsError:
+        logger.info(f'Info: blob container {storage_account_cfg.container_name} already exists.')
+
+    target_blob_name = _get_target_blob_name(release.version)
+
+    logger.info(f'Copying from S3 to Azure Storage Account blob: {target_blob_name=}')
+    image_url, sas_token = copy_image_from_s3_to_az_storage_account(
+        storage_account_cfg=storage_account_cfg,
+        s3_client=s3_client,
+        s3_bucket_name=azure_release_artifact_path.s3_bucket_name,
+        s3_object_key=azure_release_artifact_path.s3_key,
+        target_blob_name=target_blob_name,
+    )
+    logger.info(f'copied from S3 to Azure Storage: {image_url=}')
+
+    # version _must_ (of course..) be strict semver for azure
+    published_version = str(version_util.parse_to_semver(release.version))
+
+    published_image = glci.model.AzurePublishedImage(
+        published_marketplace_images=[],
+        published_gallery_images=[],
+    )
+
+    for hyper_v_generation in glci.model.AzureHyperVGeneration:
+        if publish_to_marketplace:
+            logger.info(f'Publishing Azure Marketplace image for {hyper_v_generation}...')
+            marketplace_published_image = publish_to_azure_marketplace(
+                image_url=image_url,
+                sas_token=sas_token,
+                published_version=published_version,
+                hyper_v_generation=hyper_v_generation,
+                service_principal_cfg=service_principal_cfg,
+                marketplace_cfg=marketplace_cfg,
+            )
+            if marketplace_published_image != None:
+                published_image.published_marketplace_images.append(marketplace_published_image)
+
+        if publish_to_community_gallery:
+            logger.info(f'Publishing community gallery image for {hyper_v_generation}...')
+            gallery_published_image = publish_to_azure_community_gallery(
+                image_url=image_url,
+                release=release,
+                published_version=published_version,
+                hyper_v_generation=hyper_v_generation,
+                subscription_id=service_principal_cfg.subscription_id,
+                credential=credential,
+                shared_gallery_cfg=shared_gallery_cfg,
+            )
+            published_image.published_gallery_images.append(gallery_published_image)
 
     return dataclasses.replace(release, published_image_metadata=published_image)

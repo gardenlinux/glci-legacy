@@ -155,6 +155,7 @@ def release_manifest(
                 typing.Tuple,
                 glci.model.TestResultCode,
                 glci.model.AzureTransportState,
+                glci.model.AzureHyperVGeneration,
             ],
         ),
     )
@@ -196,6 +197,7 @@ def release_manifest_set(
                 typing.Tuple,
                 glci.model.TestResultCode,
                 glci.model.AzureTransportState,
+                glci.model.AzureHyperVGeneration,
             ],
         ),
     )
