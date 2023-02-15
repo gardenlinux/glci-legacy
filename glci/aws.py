@@ -375,7 +375,9 @@ def upload_and_register_gardenlinux_image(
         aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
 
         bucket_cfg_name = publishing_cfg.buildresult_bucket(name=aws_cfg.buildresult_bucket)
-        bucket_name = bucket_cfg_name.bucket_name
+        # bucket_name = bucket_cfg_name.bucket_name
+        # TODO: bucket_name in bucket_cfg does not return configured value, but name of cfg
+        bucket_name = 'gardenlinux-github-releases'
 
         # TODO: check path is actually S3_ReleaseFile
         raw_image_key = aws_release_artifact_path.s3_key
