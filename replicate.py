@@ -42,10 +42,27 @@ def replicate_image_blobs(
                     Bucket=target_bucket.bucket_name,
                     Key=image_blob_ref.s3_key,
                 )
-                logger.info(
-                    f'{image_blob_ref.s3_key} already existed in {target_bucket.bucket_name}'
+
+                # there were cases where replicated blobs were corrupt (typically, they had
+                # length of zero octets); as a (weak) validation, at least compare sizes
+                replicated_leng = resp['ContentLength']
+
+                resp = s3_source_client.head_object(
+                    Bucket=source_bucket.bucket_name,
+                    Key=image_blob_ref.s3_key,
                 )
-                continue
+                if replicated_leng != (source_leng := resp['ContentLength']):
+                    logger.warning(f'blob-sizes do not match: {replicated_leng=} {source_leng=}')
+                    logger.warning(f'will purge and re-replicate')
+                    s3_target_client.delete_object(
+                        Bucket=target_bucket.bucket_name,
+                        Key=image_blob_ref.s3_key,
+                    )
+                else:
+                    logger.info(
+                        f'{image_blob_ref.s3_key} already existed in {target_bucket.bucket_name}'
+                    )
+                    continue
             except botocore.exceptions.ClientError as ce:
                 print(ce)
                 code = ce.response['Error']['Code']
