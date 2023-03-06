@@ -731,7 +731,7 @@ def publish_to_azure_marketplace(
     logger.info(f"Azure Marketplace publish operation ID is {publish_operation_id}")
 
     # use anticipated URN for now
-    urn=generate_urn(marketplace_cfg, published_version),
+    urn=generate_urn(marketplace_cfg, published_version)
     logger.info(f'Image shared on marketplace: {urn=}')
 
     marketplace_published_image = glci.model.AzureMarketplacePublishedImage(
