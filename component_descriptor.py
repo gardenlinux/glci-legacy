@@ -68,7 +68,7 @@ def component_descriptor(
                     type=cm.AccessType.OCI_REGISTRY,
                 )
             ],
-            provider=cm.Provider.INTERNAL,
+            provider='sap-se',
             sources=[
                 cm.ComponentSource(
                     name='gardenlinux',
