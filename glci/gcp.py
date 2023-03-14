@@ -51,6 +51,18 @@ def upload_image_to_gcp_store(
         return image_blob
 
 
+def delete_image_from_gcp_store(
+    storage_client: google.cloud.storage.Client,
+    release: glci.model.OnlineReleaseManifest,
+    publishing_cfg: glci.model.PublishingTargetGCP,
+):
+    gcp_bucket_name = publishing_cfg.gcp_bucket_name
+    image_blob_name = f'gardenlinux-{release.version}.tar.gz'
+
+    gcp_bucket = storage_client.get_bucket(gcp_bucket_name)
+    gcp_bucket.delete_blob(image_blob_name)
+
+
 def upload_image_from_gcp_store(
     compute_client,
     image_blob: google.cloud.storage.blob.Blob,
@@ -138,4 +150,16 @@ def upload_and_publish_image(
         image_blob=image_blob,
         gcp_project_name=gcp_project_name,
         release=release,
+    )
+
+
+def cleanup_image(
+    storage_client: google.cloud.storage.Client,
+    release: glci.model.OnlineReleaseManifest,
+    publishing_cfg: glci.model.PublishingTargetGCP,
+):
+    return delete_image_from_gcp_store(
+        storage_client=storage_client,
+        release=release,
+        publishing_cfg=publishing_cfg,
     )
