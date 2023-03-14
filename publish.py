@@ -232,9 +232,11 @@ def _cleanup_gcp_image(
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
     storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
+    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
     
     return glci.gcp.cleanup_image(
         storage_client=storage_client,
+        compute_client=compute_client,
         release=release,
         publishing_cfg=gcp_publishing_cfg,
     )
