@@ -37,7 +37,7 @@ def publish_image(
         cleanup_function = _cleanup_aws
     elif release.platform == 'gcp':
         publish_function = _publish_gcp_image
-        cleanup_function = None
+        cleanup_function = _cleanup_gcp_image
     elif release.platform == 'azure':
         publish_function = _publish_azure_image
         cleanup_function = None
@@ -219,6 +219,24 @@ def _publish_gcp_image(
         s3_client=s3_client,
         compute_client=compute_client,
         gcp_project_name=gcp_cfg.project(),
+        release=release,
+        publishing_cfg=gcp_publishing_cfg,
+    )
+
+
+def _cleanup_gcp_image(
+    release: gm.OnlineReleaseManifest,
+    publishing_cfg: gm.PublishingCfg,
+) -> gm.OnlineReleaseManifest:
+    gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
+    cfg_factory = ci.util.ctx().cfg_factory()
+    gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
+    storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
+    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
+    
+    return glci.gcp.cleanup_image(
+        storage_client=storage_client,
+        compute_client=compute_client,
         release=release,
         publishing_cfg=gcp_publishing_cfg,
     )

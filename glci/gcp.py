@@ -5,6 +5,7 @@ import logging
 
 import google.cloud.storage.blob
 import google.cloud.storage.client
+import googleapiclient.errors
 import glci.model
 import glci.util
 
@@ -51,17 +52,27 @@ def upload_image_to_gcp_store(
         return image_blob
 
 
+def delete_image_from_gcs_bucket(
+    storage_client: google.cloud.storage.Client,
+    release: glci.model.OnlineReleaseManifest,
+    publishing_cfg: glci.model.PublishingTargetGCP,
+):
+    gcp_bucket_name = publishing_cfg.gcp_bucket_name
+    image_blob_name = f'gardenlinux-{release.version}.tar.gz'
+
+    gcp_bucket = storage_client.get_bucket(gcp_bucket_name)
+    image_blob = gcp_bucket.blob(image_blob_name)
+    if image_blob.exists():
+        image_blob.delete()
+
+
 def upload_image_from_gcp_store(
     compute_client,
     image_blob: google.cloud.storage.blob.Blob,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
 ) -> glci.model.OnlineReleaseManifest:
-    image_name = f'gardenlinux-{release.canonical_release_manifest_key_suffix()}'.replace(
-        '.', '-'
-    ).replace(
-        '_', '-'
-    ).strip('-')
+    image_name = _get_image_name_from_release_manifest(release)
 
     images = compute_client.images()
 
@@ -75,6 +86,8 @@ def upload_image_from_gcp_store(
             },
         },
     )
+
+    logger().info(f'inserting new image {image_name=} into project {gcp_project_name=}')
 
     resp = insertion_rq.execute()
     op_name = resp['name']
@@ -118,6 +131,36 @@ def upload_image_from_gcp_store(
     return dataclasses.replace(release, published_image_metadata=published_image)
 
 
+def delete_image_from_gce_image_store(
+    compute_client,
+    gcp_project_name: str,
+    release: glci.model.OnlineReleaseManifest,
+) -> glci.model.OnlineReleaseManifest:
+    image_name = _get_image_name_from_release_manifest(release)
+
+    images = compute_client.images()
+
+    deletion_rq = images.delete(
+        project=gcp_project_name,
+        image=image_name,
+    )
+
+    logger().info(f'deleting stale image {image_name=} from project {gcp_project_name=}')
+
+    resp = deletion_rq.execute()
+    op_name = resp['name']
+
+    logger().info(f'waiting for {op_name=}')
+
+    operation = compute_client.globalOperations()
+    operation.wait(
+        project=gcp_project_name,
+        operation=op_name,
+    ).execute()
+
+    logger().info(f'image {image_name=} deleted')
+
+
 def upload_and_publish_image(
     storage_client: google.cloud.storage.Client,
     s3_client,
@@ -133,9 +176,56 @@ def upload_and_publish_image(
         publishing_cfg=publishing_cfg,
     )
 
-    return upload_image_from_gcp_store(
+    release_manifest = None
+
+    try:
+        release_manifest = upload_image_from_gcp_store(
+            compute_client=compute_client,
+            image_blob=image_blob,
+            gcp_project_name=gcp_project_name,
+            release=release,
+        )
+    except googleapiclient.errors.HttpError as e:
+        if e.status_code() == 409:
+            # image already exists, delete it first and retry
+            delete_image_from_gce_image_store(
+                compute_client=compute_client,
+                gcp_project_name=gcp_project_name,
+                release=release,
+            )
+            release_manifest = upload_image_from_gcp_store(
+                compute_client=compute_client,
+                image_blob=image_blob,
+                gcp_project_name=gcp_project_name,
+                release=release,
+            )
+
+    return release_manifest
+
+
+def cleanup_image(
+    storage_client: google.cloud.storage.Client,
+    compute_client,
+    gcp_project_name: str,
+    release: glci.model.OnlineReleaseManifest,
+    publishing_cfg: glci.model.PublishingTargetGCP,
+):
+    delete_image_from_gce_image_store(
         compute_client=compute_client,
-        image_blob=image_blob,
         gcp_project_name=gcp_project_name,
         release=release,
     )
+
+    delete_image_from_gcs_bucket(
+        storage_client=storage_client,
+        release=release,
+        publishing_cfg=publishing_cfg,
+    )
+
+
+def _get_image_name_from_release_manifest(release: glci.model.OnlineReleaseManifest) -> str:
+    return f'gardenlinux-{release.canonical_release_manifest_key_suffix()}'.replace(
+        '.', '-'
+    ).replace(
+        '_', '-'
+    ).strip('-')
