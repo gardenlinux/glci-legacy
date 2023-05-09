@@ -186,7 +186,7 @@ def upload_and_publish_image(
             release=release,
         )
     except googleapiclient.errors.HttpError as e:
-        if e.status_code() == 409:
+        if e.status_code == 409:
             # image already exists, delete it first and retry
             delete_image_from_gce_image_store(
                 compute_client=compute_client,
