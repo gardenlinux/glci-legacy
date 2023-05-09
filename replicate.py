@@ -11,6 +11,8 @@ import model
 import glci.model as gm
 import glci.util as gu
 
+from glci.aws import response_ok
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,13 +99,13 @@ def replicate_image_blobs(
                 logger.info('falling back to tempfile-backed replication')
 
                 with tempfile.TemporaryFile() as tf:
-                    s3_source_client.download_fileobj(
+                    response_ok(s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
                         Fileobj=tf,
-                    )
+                    ))
                     logger.info('downloaded to tempfile - now starting to upload (2nd attempt)')
-                    s3_target_client.upload_fileobj(
+                    response_ok(s3_target_client.upload_fileobj(
                         Fileobj=body,
                         Bucket=target_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
@@ -113,14 +115,12 @@ def replicate_image_blobs(
                             # connectivity issues when uploading through "great
                             # chinese firewall"
                         ),
-                    )
+                    ))
 
 
             # make it world-readable (otherwise, vm-image-imports may fail)
-            resp = s3_target_client.put_object_acl(
+            response_ok(s3_target_client.put_object_acl(
                 ACL='public-read',
                 Bucket=target_bucket.bucket_name,
                 Key=image_blob_ref.s3_key,
-            )
-            if resp['ResponseMetadata']['HTTPStatusCode'] != 200:
-                logger.warning(f'failed to set public-read ACL on {target_bucket.bucket_name}/{image_blob_ref.s3_key}')
+            ))
