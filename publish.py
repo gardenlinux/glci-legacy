@@ -237,6 +237,7 @@ def _cleanup_gcp_image(
     return glci.gcp.cleanup_image(
         storage_client=storage_client,
         compute_client=compute_client,
+        gcp_project_name=gcp_cfg.project(),
         release=release,
         publishing_cfg=gcp_publishing_cfg,
     )
