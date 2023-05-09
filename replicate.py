@@ -28,6 +28,7 @@ def replicate_image_blobs(
     s3_source_client = s3_source_session.client('s3')
 
     for target_bucket in target_buckets:
+        logger.info(f'Performing image blob replication from {source_bucket.aws_cfg_name=} to {target_bucket.aws_cfg_name=}')
         s3_target_session = ccc.aws.session(target_bucket.aws_cfg_name)
         s3_target_client = s3_target_session.client('s3')
 
@@ -85,7 +86,7 @@ def replicate_image_blobs(
                 body = resp['Body']
 
 
-                logger.info(f'uploading to {target_bucket.bucket_name=}, {image_blob_ref.s3_key=}')
+                logger.info(f'uploading to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
                 logger.info(f'.. this may take a couple of minutes ({leng} octets)')
                 s3_target_client.upload_fileobj(
                     Fileobj=body,
