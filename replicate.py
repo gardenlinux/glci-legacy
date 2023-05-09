@@ -93,7 +93,7 @@ def replicate_image_blobs(
                     ),
                 )
             except Exception as e:
-                logger.warning(f'there was an error trying to replicate using streaming')
+                logger.warning(f'there was an error trying to replicate using streaming: {e}')
                 logger.info('falling back to tempfile-backed replication')
 
                 with tempfile.TemporaryFile() as tf:
@@ -117,8 +117,10 @@ def replicate_image_blobs(
 
 
             # make it world-readable (otherwise, vm-image-imports may fail)
-            s3_target_client.put_object_acl(
+            resp = s3_target_client.put_object_acl(
                 ACL='public-read',
                 Bucket=target_bucket.bucket_name,
                 Key=image_blob_ref.s3_key,
             )
+            if resp['ResponseMetadata']['HTTPStatusCode'] != 200:
+                logger.warning(f'failed to set public-read ACL on {target_bucket.bucket_name}/{image_blob_ref.s3_key}')
