@@ -95,10 +95,19 @@ def upload_image_from_gcp_store(
     logger().info(f'waiting for {op_name=}')
 
     operation = compute_client.globalOperations()
-    operation.wait(
-        project=gcp_project_name,
-        operation=op_name,
-    ).execute()
+    
+    # this can take than two minutes, so we allow up to 2 minutes
+    logger().info("waiting up to 20 minutes for image insert operation to complete")
+
+    for _ in range(10):
+        try:
+            operation.wait(
+                project=gcp_project_name,
+                operation=op_name,
+            ).execute()
+            break
+        except TimeoutError as e:
+            pass
 
     logger().info(f'import done - removing temporary object from bucket {image_blob.name=}')
 
