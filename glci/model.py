@@ -690,15 +690,28 @@ class CicdCfg:
     package_build: typing.Optional[PackageBuildCfg]
 
 
-class BucketRole(enum.Enum):
+class BuildResultBucketRole(enum.Enum):
     SOURCE = 'source'
     REPLICA = 'replica'
+
+
+class ManifestBucketRole(enum.Enum):
+    SOURCE = 'source'
+    TARGET = 'target'
+
+
+@dataclasses.dataclass
+class ManifestS3Bucket:
+    name: str
+    role: ManifestBucketRole
+    bucket_name: str
+    aws_cfg_name: str
 
 
 @dataclasses.dataclass
 class BuildresultS3Bucket:
     name: str
-    role: BucketRole
+    role: BuildResultBucketRole
     bucket_name: str
     aws_cfg_name: str
     platforms: list[Platform] = None
@@ -715,6 +728,7 @@ class PublishingTargetAliyun:
     aliyun_cfg_name: str
     oss_bucket_name: str
     aliyun_region: str
+    copy_regions: typing.Optional[list[str]]
     platform: Platform = 'ali' # should not overwrite
 
 
@@ -722,6 +736,7 @@ class PublishingTargetAliyun:
 class PublishingTargetAWSAccount:
     aws_cfg_name: str
     buildresult_bucket: str
+    copy_regions: typing.Optional[list[str]]
 
 
 @dataclasses.dataclass
@@ -773,6 +788,7 @@ class OcmCfg:
 @dataclasses.dataclass
 class PublishingCfg:
     name: str
+    manifest_s3_buckets: list[ManifestS3Bucket]
     buildresult_s3_buckets: list[BuildresultS3Bucket]
     ocm: OcmCfg
     targets: list[
@@ -805,14 +821,27 @@ class PublishingCfg:
     @property
     def origin_buildresult_bucket(self) -> BuildresultS3Bucket:
         for bucket in self.buildresult_s3_buckets:
-            if bucket.role is BucketRole.SOURCE:
+            if bucket.role is BuildResultBucketRole.SOURCE:
                 return bucket
         raise RuntimeError('did not find buildresult-bucket w/ role `source`')
 
     @property
     def replica_buildresult_buckets(self) -> typing.Generator[BuildresultS3Bucket, None, None]:
         for bucket in self.buildresult_s3_buckets:
-            if bucket.role is BucketRole.REPLICA:
+            if bucket.role is BuildResultBucketRole.REPLICA:
+                yield bucket
+
+    @property
+    def source_manifest_bucket(self) -> ManifestS3Bucket:
+        for bucket in self.manifest_s3_buckets:
+            if bucket.role is ManifestBucketRole.SOURCE:
+                return bucket
+        raise RuntimeError('did not find manifest-bucket w/ role `source`')
+
+    @property
+    def target_manifest_buckets(self) -> typing.Tuple[BuildresultS3Bucket, None, None]:
+        for bucket in self.manifest_s3_buckets:
+            if bucket.role is ManifestBucketRole.TARGET:
                 yield bucket
 
 

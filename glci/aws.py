@@ -179,9 +179,15 @@ def register_image(
 
 def enumerate_region_names(
     ec2_client: 'botocore.client.EC2',
+    regions_to_include: list[str] = None
 ):
     for region in ec2_client.describe_regions()['Regions']:
-        yield region['RegionName']
+        region_name = region['RegionName']
+        if regions_to_include != None:
+            if region_name in regions_to_include:
+                yield region_name
+        else:
+            yield region_name
 
 
 def wait_for_image_state(
@@ -420,7 +426,7 @@ def upload_and_register_gardenlinux_image(
         )
         logger.info(f'registered {initial_ami_id=}')
 
-        region_names = tuple(enumerate_region_names(ec2_client=ec2_client))
+        region_names = tuple(enumerate_region_names(ec2_client=ec2_client, regions_to_include=aws_cfg.copy_regions))
 
         try:
             image_map = dict(

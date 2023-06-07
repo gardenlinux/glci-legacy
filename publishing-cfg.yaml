@@ -1,4 +1,9 @@
 - name: 'default'
+  manifest_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux'
   buildresult_s3_buckets:
     - name: 'origin'
       role: 'source'
@@ -52,3 +57,26 @@
         hypervisor_type: baremetal
         os_distro: debian10_64Guest
         img_config_drive: mandatory
+- name: 'gardener-integration-test'
+  manifest_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux-integration-test'
+    - name: 'tests'
+      role: 'target'
+      bucket_name: 'gardenlinux-test-import'
+      aws_cfg_name: 'gardenlinux-integration-test'
+  buildresult_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux-integration-test'
+  ocm:
+    component_repository_cfg_name: 'gardenlinux-test'
+  targets:
+    - platform: 'aws'
+      aws_cfgs:
+        - aws_cfg_name: 'gardenlinux-integration-test'
+          buildresult_bucket: 'origin'
+          copy_regions: ['eu-west-1']

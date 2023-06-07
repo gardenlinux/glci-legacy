@@ -51,6 +51,7 @@ class AlicloudImageMaker:
         self.release = release
         self.bucket_name =  publishing_cfg.oss_bucket_name
         self.region = publishing_cfg.aliyun_region
+        self.regions_to_copy_to = publishing_cfg.copy_regions
         self.image_oss_key = f"gardenlinux-{self.release.version}.qcow2"
         self.image_name = f"gardenlinux-{self.release.canonical_release_manifest_key_suffix()}"
 
@@ -265,7 +266,13 @@ class AlicloudImageMaker:
 
         for region in response.get("Regions").get("Region"):
             region_id = region.get("RegionId")
-            if region_id != self.region:
+            if region_id == self.region:
+                continue
+
+            if self.regions_to_copy_to != None:
+                if region_id in self.regions_to_copy_to:
+                    region_ids.append(region_id)
+            else:
                 region_ids.append(region_id)
 
         return region_ids

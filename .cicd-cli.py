@@ -698,15 +698,19 @@ def publish_release_set():
 
     phase_logger = start_phase('sync-images')
 
-    s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
+    source_manifest_bucket = cfg.source_manifest_bucket
+    target_manifest_buckets = tuple(cfg.target_manifest_buckets)
+    if len(target_manifest_buckets) == 0:
+        target_manifest_buckets = (source_manifest_bucket,)
+
+    s3_session = ccc.aws.session(source_manifest_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-    origin_buildresult_bucket = cfg.origin_buildresult_bucket
 
     release_manifests = list(
         glci.util.find_releases(
             s3_client=s3_client,
-            bucket_name=origin_buildresult_bucket.bucket_name,
+            bucket_name=source_manifest_bucket.bucket_name,
             flavour_set=flavour_set,
             build_committish=commit,
             version=version,
@@ -798,15 +802,18 @@ def publish_release_set():
         )
         release_manifests[idx] = updated_manifest
 
-        target = f'{origin_buildresult_bucket.bucket_name}/{manifest.s3_key}'
-        phase_logger.info(f'updating release-manifest at {target}')
+        phase_logger.info(f"{idx=}, {target_manifest_buckets=}")
 
-        glci.util.upload_release_manifest(
-            s3_client=s3_client,
-            bucket_name=origin_buildresult_bucket.bucket_name,
-            key=manifest.s3_key,
-            manifest=updated_manifest,
-        )
+        for target_manifest_bucket in target_manifest_buckets:
+            target = f'{target_manifest_bucket.bucket_name}/{manifest.s3_key}'
+            phase_logger.info(f'updating release-manifest at {target}')
+
+            glci.util.upload_release_manifest(
+                s3_client=s3_client,
+                bucket_name=target_manifest_bucket.bucket_name,
+                key=manifest.s3_key,
+                manifest=updated_manifest,
+            )
 
         phase_logger.info(f'image publishing for {manifest.platform} succeeded')
 
