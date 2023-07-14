@@ -150,7 +150,7 @@ class GardenlinuxFlavour:
     def calculate_modifiers(self):
         yield from (
             feature_by_name(f) for f
-            in normalised_modifiers(platform=self.platform, modifiers=self.modifiers)
+            in self.modifiers
         )
 
     def canonical_name_prefix(self):
@@ -214,8 +214,7 @@ class GardenlinuxFlavourSet:
                 yield GardenlinuxFlavour(
                     architecture=arch,
                     platform=platf,
-                    modifiers=normalised_modifiers(
-                        platform=platf, modifiers=mods),
+                    modifiers=mods,
                 )
 
 
@@ -258,7 +257,7 @@ class ReleaseIdentifier:
         return GardenlinuxFlavour(
             architecture=self.architecture,
             platform=self.platform,
-            modifiers=mods,
+            modifiers=self.modifiers,
         )
 
     def canonical_release_manifest_key_suffix(self):
@@ -276,8 +275,8 @@ class ReleaseIdentifier:
 
         note that the full key should be prefixed (e.g. with manifest_key_prefix)
         '''
-        cname = canonical_name(self.platform, self.modifiers)
-        return f'{cname}-{self.architecture.value}-{self.version}-{self.build_committish[:7]}'
+        cname = canonical_name(platform=self.platform, modifiers=self.modifiers, architecture=self.architecture, version=self.version)
+        return f'{cname}-{self.build_committish[:8]}'
 
     def canonical_release_manifest_key(self):
         return f'{self.manifest_key_prefix}/{self.canonical_release_manifest_key_suffix()}'
@@ -444,38 +443,19 @@ class ReleaseManifest(ReleaseIdentifier):
         return dateutil.parser.isoparse(self.build_timestamp)
 
 
-def normalised_modifiers(platform: Platform, modifiers) -> typing.Tuple[str, ...]:
-    '''
-    determines the transitive closure of all features from the given platform and modifiers,
-    and returns the (ASCII-upper-case-sorted) result as a `tuple` of str of all modifiers,
-    except for the platform
-    '''
-    platform = feature_by_name(platform)
-    modifiers = {feature_by_name(f) for f in modifiers}
-
-    all_modifiers = set((m.name for m in modifiers))
-    for m in modifiers:
-        all_modifiers |= set((m.name for m in m.included_features()))
-
-    for f in platform.included_features():
-        all_modifiers.add(f.name)
-
-    normalised_features = tuple(sorted(all_modifiers, key=str.upper))
-
-    return normalised_features
-
-
 def normalised_release_identifier(release_identifier: ReleaseIdentifier):
     features = canonical_features(
         platform=release_identifier.platform,
         modifiers=release_identifier.modifiers,
+        architecture=release_identifier.architecture.value,
+        version=release_identifier.version
     )
     modifiers = ','.join(f.name for f in features)
 
     return dataclasses.replace(release_identifier, modifiers=modifiers)
 
 
-def canonical_features(platform: Platform, modifiers) -> typing.Tuple[FeatureDescriptor]:
+def canonical_features(platform: Platform, modifiers, architecture, version) -> typing.Tuple[FeatureDescriptor]:
     '''
     calculates the "canonical" (/minimal) tuple of features required to unambiguosly identify
     a gardenlinux flavour. The result is returned as a (ASCII-upper-case-sorted) tuple of
@@ -484,7 +464,7 @@ def canonical_features(platform: Platform, modifiers) -> typing.Tuple[FeatureDes
     The minimal featureset is determined by removing all transitive dependencies (which are thus
     implied by the retained features).
     '''
-    feature_str = _garden_feat(platform=platform, modifiers=modifiers, cmd='features')
+    feature_str = _garden_feat(platform=platform, modifiers=modifiers, arch=architecture, version=version, cmd='features')
 
     return tuple(
         feature_by_name(f)
@@ -495,6 +475,7 @@ def canonical_features(platform: Platform, modifiers) -> typing.Tuple[FeatureDes
 def canonical_name(
     platform: Platform,
     modifiers,
+    version: str,
     architecture: Architecture|None=None,
 ) -> str:
     '''Calculates the canonical name of a gardenlinux flavour.
@@ -502,10 +483,7 @@ def canonical_name(
     The canonical name consists of the minimal sorted set of features in the given flavour, as
     determined by bin/garden-feat, with the platform always being the first element.
     '''
-    cname = _garden_feat(platform=platform, modifiers=modifiers, cmd='cname')
-
-    if architecture:
-        cname = f'{cname}-{architecture.value}'
+    cname = _garden_feat(platform=platform, modifiers=modifiers, arch=architecture.value, version=version)
 
     return cname
 
@@ -1031,19 +1009,31 @@ def feature_by_name(feature_name: str):
 def _garden_feat(
     platform: str,
     modifiers: typing.Tuple[str, ...],
-    cmd: str,
+    arch: str,
+    version: str,
+    cmd: str = 'cname',
 ) -> str:
     all_mods = set(tuple(modifiers) + (platform,))
-    garden_feat_binary = os.path.abspath(os.path.join(paths.gardenlinux_dir, 'bin', 'garden-feat'))
-    completed = subprocess.run(
-        args=[
-            garden_feat_binary,
-            '--featureDir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
+    feature_binary = os.path.abspath(os.path.join(paths.gardenlinux_builder_dir, 'builder', 'parse_features'))
+    feature_args=[
+            feature_binary,
+            '--feature-dir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
             '--features', ','.join(all_mods),
+            "--arch", arch,
+            "--version", version,
             cmd,
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return completed.stdout.strip()
+        ]
+
+    parse_features_proc = None
+    try:
+        parse_features_proc = subprocess.run(
+            args=feature_args,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as parse_features_exception:
+        print(f"{parse_features_exception.stdout=}\n{parse_features_exception.stderr=}\n{parse_features_exception.returncode}")
+        raise parse_features_exception
+
+    return parse_features_proc.stdout.strip()

@@ -11,6 +11,8 @@ import model
 import glci.model as gm
 import glci.util as gu
 
+from glci.aws import response_ok
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +28,7 @@ def replicate_image_blobs(
     s3_source_client = s3_source_session.client('s3')
 
     for target_bucket in target_buckets:
+        logger.info(f'Performing image blob replication from {source_bucket.aws_cfg_name=} to {target_bucket.aws_cfg_name=}')
         s3_target_session = ccc.aws.session(target_bucket.aws_cfg_name)
         s3_target_client = s3_target_session.client('s3')
 
@@ -83,27 +86,29 @@ def replicate_image_blobs(
                 body = resp['Body']
 
 
-                logger.info(f'uploading to {target_bucket.bucket_name=}, {image_blob_ref.s3_key=}')
+                logger.info(f'uploading to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
                 logger.info(f'.. this may take a couple of minutes ({leng} octets)')
                 s3_target_client.upload_fileobj(
                     Fileobj=body,
                     Bucket=target_bucket.bucket_name,
                     Key=image_blob_ref.s3_key,
                     Config=bt.TransferConfig(
+                        use_threads=True,
+                        max_concurrency=5
                     ),
                 )
             except Exception as e:
-                logger.warning(f'there was an error trying to replicate using streaming')
+                logger.warning(f'there was an error trying to replicate using streaming: {e}')
                 logger.info('falling back to tempfile-backed replication')
 
                 with tempfile.TemporaryFile() as tf:
-                    s3_source_client.download_fileobj(
+                    response_ok(s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
                         Fileobj=tf,
-                    )
+                    ))
                     logger.info('downloaded to tempfile - now starting to upload (2nd attempt)')
-                    s3_target_client.upload_fileobj(
+                    response_ok(s3_target_client.upload_fileobj(
                         Fileobj=body,
                         Bucket=target_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
@@ -112,13 +117,15 @@ def replicate_image_blobs(
                             # rationale: we sometimes see "sporadic"
                             # connectivity issues when uploading through "great
                             # chinese firewall"
+                            use_threads=True,
+                            max_concurrency=5
                         ),
-                    )
+                    ))
 
 
             # make it world-readable (otherwise, vm-image-imports may fail)
-            s3_target_client.put_object_acl(
+            response_ok(s3_target_client.put_object_acl(
                 ACL='public-read',
                 Bucket=target_bucket.bucket_name,
                 Key=image_blob_ref.s3_key,
-            )
+            ))

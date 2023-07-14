@@ -29,15 +29,18 @@ glci:
       - name: 'GARDENLINUX'
         cfg_name: 'github_com'
         path: 'gardenlinux/gardenlinux'
-        branch: 'rel-934'
+        branch: 'main'
+      - name: 'GARDENLINUX_BUILDER'
+        cfg_name: 'github_com'
+        path: 'gardenlinux/builder'
+        branch: 'main'
       steps:
         publish-gardenlinux-images:
           execute:
-          - '../publish-release-set'
+          - '../run_publish_release_set.sh'
           - '--version-name'
           - 'default'
           image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
-
     update-job-image:
       repo:
         trigger: false

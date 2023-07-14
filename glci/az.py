@@ -154,6 +154,7 @@ class AzmpOperationState(Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     SUCCEEDED = "succeeded"
+    CANCELED = "canceled"
     FAILED = "failed"
 
 class AzmpTransportDest(Enum):
@@ -198,6 +199,9 @@ class AzureMarketplaceClient:
 
     def _raise_for_status(self, response, message=""):
         if response.ok:
+            return
+        if response.status_code == 409:
+            logger.warning(f"Conflicting Azure MP operation exists: {message}. statuscode={response.status_code}")
             return
         if message:
             raise RuntimeError(f"{message}. statuscode={response.status_code}")
@@ -551,16 +555,46 @@ def _create_shared_image(
     }
     regions.add(shared_gallery_cfg.location) # ensure that the gallery's location is present
     # rm regions not yet supported (although they are returned by the subscription-client)
-    regions.remove('australiacentral2')
-    regions.remove('brazilsoutheast')
-    regions.remove('francesouth')
-    regions.remove('germanynorth')
-    regions.remove('jioindiacentral')
-    regions.remove('norwaywest')
-    regions.remove('southafricawest')
-    regions.remove('switzerlandwest')
-    regions.remove('uaecentral')
-
+    try:
+        regions.remove('australiacentral2')
+    except KeyError:
+        pass
+    try:
+        regions.remove('brazilsoutheast')
+    except KeyError:
+        pass
+    try:
+        regions.remove('brazilus')
+    except KeyError:
+        pass
+    try:
+        regions.remove('francesouth')
+    except KeyError:
+        pass
+    try:
+        regions.remove('germanynorth')
+    except KeyError:
+        pass
+    try:
+        regions.remove('jioindiacentral')
+    except KeyError:
+        pass
+    try:
+        regions.remove('norwaywest')
+    except KeyError:
+        pass
+    try:
+        regions.remove('southafricawest')
+    except KeyError:
+        pass
+    try:
+        regions.remove('switzerlandwest')
+    except KeyError:
+        pass
+    try:
+        regions.remove('uaecentral')
+    except KeyError:
+        pass
 
     logger.info(f'Creating gallery image version {image_version=}')
     result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
