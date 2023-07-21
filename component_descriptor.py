@@ -217,7 +217,7 @@ def _image_rootfs_resource(
         ),
     ]
 
-    rootfs_file_path = release_manifest.path_by_suffix('.tar.xz')
+    rootfs_file_path = release_manifest.path_by_suffix('.tar')
 
     return cm.Resource(
         name='rootfs',

@@ -759,7 +759,7 @@ def publish_release_set():
                     f'no cfg for {manifest.platform=} - aborting'
                 )
             else:
-                raise ValueError(ob_absent) # programming error
+                raise ValueError(on_absent) # programming error
 
     phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
 

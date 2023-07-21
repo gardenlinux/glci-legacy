@@ -95,10 +95,23 @@ def upload_image_from_gcp_store(
     logger().info(f'waiting for {op_name=}')
 
     operation = compute_client.globalOperations()
-    operation.wait(
-        project=gcp_project_name,
-        operation=op_name,
-    ).execute()
+
+    # this can take more than two minutes, so we allow up to 20 minutes
+    max_retries = 10
+    logger().info("waiting up to 20 minutes for image insert operation to complete")
+
+    for retry in range(max_retries):
+        try:
+            operation.wait(
+                project=gcp_project_name,
+                operation=op_name,
+            ).execute()
+            break
+        except TimeoutError as e:
+            if retry + 1 >= max_retries:
+                raise e
+            else:
+                pass
 
     logger().info(f'import done - removing temporary object from bucket {image_blob.name=}')
 
@@ -186,7 +199,7 @@ def upload_and_publish_image(
             release=release,
         )
     except googleapiclient.errors.HttpError as e:
-        if e.status_code() == 409:
+        if e.status_code == 409:
             # image already exists, delete it first and retry
             delete_image_from_gce_image_store(
                 compute_client=compute_client,
