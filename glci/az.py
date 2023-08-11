@@ -510,6 +510,11 @@ def _append_hyper_v_generation(s: str, generation: glci.model.AzureHyperVGenerat
         return f"{s}-gen2"
     return s
 
+def _remove_single_region_from_set(region_set: set, region: str):
+    try:
+        region_set.remove(region)
+    except KeyError:
+        pass
 
 def _create_shared_image(
     cclient: ComputeManagementClient,
@@ -555,46 +560,16 @@ def _create_shared_image(
     }
     regions.add(shared_gallery_cfg.location) # ensure that the gallery's location is present
     # rm regions not yet supported (although they are returned by the subscription-client)
-    try:
-        regions.remove('australiacentral2')
-    except KeyError:
-        pass
-    try:
-        regions.remove('brazilsoutheast')
-    except KeyError:
-        pass
-    try:
-        regions.remove('brazilus')
-    except KeyError:
-        pass
-    try:
-        regions.remove('francesouth')
-    except KeyError:
-        pass
-    try:
-        regions.remove('germanynorth')
-    except KeyError:
-        pass
-    try:
-        regions.remove('jioindiacentral')
-    except KeyError:
-        pass
-    try:
-        regions.remove('norwaywest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('southafricawest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('switzerlandwest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('uaecentral')
-    except KeyError:
-        pass
+    _remove_single_region_from_set(regions, 'australiacentral2')
+    _remove_single_region_from_set(regions, 'brazilsoutheast')
+    _remove_single_region_from_set(regions, 'francesouth')
+    _remove_single_region_from_set(regions, 'germanynorth')
+    _remove_single_region_from_set(regions, 'jioindiacentral')
+    _remove_single_region_from_set(regions, 'norwaywest')
+    _remove_single_region_from_set(regions, 'southafricawest')
+    _remove_single_region_from_set(regions, 'switzerlandwest')
+    _remove_single_region_from_set(regions, 'uaecentral')
+
 
     logger.info(f'Creating gallery image version {image_version=}')
     result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
