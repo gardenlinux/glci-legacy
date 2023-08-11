@@ -93,6 +93,8 @@ def replicate_image_blobs(
                     Bucket=target_bucket.bucket_name,
                     Key=image_blob_ref.s3_key,
                     Config=bt.TransferConfig(
+                        use_threads=True,
+                        max_concurrency=5
                     ),
                 )
             except Exception as e:
@@ -100,23 +102,39 @@ def replicate_image_blobs(
                 logger.info('falling back to tempfile-backed replication')
 
                 with tempfile.TemporaryFile() as tf:
-                    response_ok(s3_source_client.download_fileobj(
+                    s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
                         Fileobj=tf,
-                    ))
-                    logger.info('downloaded to tempfile - now starting to upload (2nd attempt)')
-                    response_ok(s3_target_client.upload_fileobj(
-                        Fileobj=body,
-                        Bucket=target_bucket.bucket_name,
-                        Key=image_blob_ref.s3_key,
-                        Config=bt.TransferConfig(
-                            num_download_attempts=20, # be very persistent before giving up
-                            # rationale: we sometimes see "sporadic"
-                            # connectivity issues when uploading through "great
-                            # chinese firewall"
-                        ),
-                    ))
+                    )
+                    logger.info('downloaded to tempfile')
+                    
+                    max_attempts = 20
+
+                    for attempt in range(max_attempts):
+                        logger.info(f'uploading to S3 into {target_bucket.bucket_name} - attempt {attempt} of {max_attempts}...')
+                        try:
+                            s3_target_client.upload_fileobj(
+                                Fileobj=body,
+                                Bucket=target_bucket.bucket_name,
+                                Key=image_blob_ref.s3_key,
+                                Config=bt.TransferConfig(
+                                    use_threads=True,
+                                    max_concurrency=5,
+                                    num_download_attempts=20, # be very persistent before giving up
+                                    # rationale: we sometimes see "sporadic"
+                                    # connectivity issues when uploading through "great
+                                    # chinese firewall"
+                                ),
+                            )
+                            break  # if we got here, it means the above instruction succeeded without exception and we can exit the retry-loop
+                        except botocore.exceptions.ReadTimeoutError as e:
+                            if attempt + 1 >= max_attempts:
+                                logger.error(f"Failed to upload to S3 within {max_attempts} attempts.")
+                                raise e
+                            else:
+                                logger.warning(f"Failed to upload to S3 during the {attempt} attempt, retrying...")
+                                continue
 
 
             # make it world-readable (otherwise, vm-image-imports may fail)
