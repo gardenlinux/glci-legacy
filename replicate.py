@@ -86,7 +86,7 @@ def replicate_image_blobs(
                 body = resp['Body']
 
 
-                logger.info(f'uploading to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
+                logger.info(f'streaming to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
                 logger.info(f'.. this may take a couple of minutes ({leng} octets)')
                 s3_target_client.upload_fileobj(
                     Fileobj=body,
@@ -112,7 +112,7 @@ def replicate_image_blobs(
                     max_attempts = 20
 
                     for attempt in range(max_attempts):
-                        logger.info(f'uploading to S3 into {target_bucket.bucket_name} - attempt {attempt + 1} of {max_attempts}...')
+                        logger.info(f'uploading to S3 for {target_bucket.aws_cfg_name=} - attempt {attempt + 1} of {max_attempts}...')
                         try:
                             s3_target_client.upload_fileobj(
                                 Fileobj=body,
@@ -133,7 +133,7 @@ def replicate_image_blobs(
                                 logger.error(f"Failed to upload to S3 within {max_attempts} attempts.")
                                 raise e
                             else:
-                                logger.warning(f"Failed to upload to S3 during the {attempt + 1} attempt, retrying...")
+                                logger.warning(f"Failed to upload to S3 during attempt {attempt + 1} of {max_attempts}, will retry: {e}")
                                 continue
 
 
