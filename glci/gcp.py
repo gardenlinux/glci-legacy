@@ -95,7 +95,7 @@ def upload_image_from_gcp_store(
     logger().info(f'waiting for {op_name=}')
 
     operation = compute_client.globalOperations()
-
+    
     # this can take more than two minutes, so we allow up to 20 minutes
     max_retries = 10
     logger().info("waiting up to 20 minutes for image insert operation to complete")
