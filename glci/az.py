@@ -506,6 +506,11 @@ def _append_hyper_v_generation(s: str, generation: glci.model.AzureHyperVGenerat
         return f"{s}-gen2"
     return s
 
+def _remove_single_region_from_set(region_set: set, region: str):
+    try:
+        region_set.remove(region)
+    except KeyError:
+        pass
 
 def _create_shared_image(
     cclient: ComputeManagementClient,
@@ -551,15 +556,15 @@ def _create_shared_image(
     }
     regions.add(shared_gallery_cfg.location) # ensure that the gallery's location is present
     # rm regions not yet supported (although they are returned by the subscription-client)
-    regions.remove('australiacentral2')
-    regions.remove('brazilsoutheast')
-    regions.remove('francesouth')
-    regions.remove('germanynorth')
-    regions.remove('jioindiacentral')
-    regions.remove('norwaywest')
-    regions.remove('southafricawest')
-    regions.remove('switzerlandwest')
-    regions.remove('uaecentral')
+    _remove_single_region_from_set(regions, 'australiacentral2')
+    _remove_single_region_from_set(regions, 'brazilsoutheast')
+    _remove_single_region_from_set(regions, 'francesouth')
+    _remove_single_region_from_set(regions, 'germanynorth')
+    _remove_single_region_from_set(regions, 'jioindiacentral')
+    _remove_single_region_from_set(regions, 'norwaywest')
+    _remove_single_region_from_set(regions, 'southafricawest')
+    _remove_single_region_from_set(regions, 'switzerlandwest')
+    _remove_single_region_from_set(regions, 'uaecentral')
 
 
     logger.info(f'Creating gallery image version {image_version=}')
