@@ -484,7 +484,6 @@ def replicate_blobs():
     replicate.replicate_image_blobs(
         publishing_cfg=cfg,
         release_manifests=release_manifests,
-        cfg_factory=cfg_factory,
     )
 
 
@@ -735,7 +734,6 @@ def publish_release_set():
         replicate.replicate_image_blobs(
             publishing_cfg=cfg,
             release_manifests=release_manifests,
-            cfg_factory=cfg_factory,
         )
     else:
         phase_logger.info('skipping sync-images (--skip-previous-phases)')
