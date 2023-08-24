@@ -1,6 +1,7 @@
 import logging
 import tempfile
 import typing
+import os
 
 import botocore.exceptions
 import boto3.s3.transfer as bt
@@ -17,6 +18,18 @@ from glci.aws import response_ok
 logger = logging.getLogger(__name__)
 
 
+def get_s3_blob_size(
+        client: client,
+        bucket: str,
+        key: str
+):
+    resp = client.head_object(
+        Bucket=bucket,
+        Key=key,
+    )
+    return resp['ContentLength']
+    
+
 def check_blob_sizes(
         source_client: client,
         source_bucket: str,
@@ -28,17 +41,17 @@ def check_blob_sizes(
     try:
         # there were cases where replicated blobs were corrupt (typically, they had
         # length of zero octets); as a (weak) validation, at least compare sizes
-        resp = target_client.head_object(
-            Bucket=target_bucket,
-            Key=target_key,
+        replicated_len = get_s3_blob_size(
+            client=target_client,
+            bucket=target_bucket,
+            key=target_key
         )
-        replicated_len = resp['ContentLength']
 
-        resp = source_client.head_object(
-            Bucket=source_bucket,
-            Key=source_key,
+        source_len = get_s3_blob_size(
+            client=source_client,
+            bucket=source_bucket,
+            key=source_key
         )
-        source_len = resp['ContentLength']
 
         if replicated_len == source_len:
             logger.info(f"replicated blob sizes match: {source_len=}, {replicated_len=}")
@@ -106,7 +119,6 @@ def replicate_image_blobs(
                 leng = resp['ContentLength']
                 body = resp['Body']
 
-
                 logger.info(f'streaming to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
                 logger.info(f'.. this may take a couple of minutes ({leng} octets)')
                 s3_target_client.upload_fileobj(
@@ -122,21 +134,33 @@ def replicate_image_blobs(
                 logger.warning(f'there was an error trying to replicate using streaming: {e}')
                 logger.info('falling back to tempfile-backed replication')
 
+                image_size = get_s3_blob_size(
+                    client=s3_source_client,
+                    bucket=source_bucket.bucket_name,
+                    key=image_blob_ref.s3_key
+                )
+                
                 with tempfile.TemporaryFile() as tf:
                     s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
                         Key=image_blob_ref.s3_key,
                         Fileobj=tf,
                     )
-                    logger.info('downloaded to tempfile')
-                    
+                    tempfile_size = tf.tell()
+
+                    if tempfile_size != image_size:
+                        raise RuntimeError(f"downloaded tempfile ({tempfile_size} octects) does not have the same size of the S3 image blob ({image_size} octects)")
+
+                    logger.info(f"downloaded to tempfile ({tempfile_size=})")
+                    tf.seek(0, os.SEEK_SET)
+
                     max_attempts = 20
 
                     for attempt in range(max_attempts):
                         logger.info(f'uploading to S3 for {target_bucket.aws_cfg_name=} - attempt {attempt + 1} of {max_attempts}...')
                         try:
                             s3_target_client.upload_fileobj(
-                                Fileobj=body,
+                                Fileobj=tf,
                                 Bucket=target_bucket.bucket_name,
                                 Key=image_blob_ref.s3_key,
                                 Config=bt.TransferConfig(
