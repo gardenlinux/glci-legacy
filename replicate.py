@@ -18,18 +18,6 @@ from glci.aws import response_ok
 logger = logging.getLogger(__name__)
 
 
-def get_s3_blob_size(
-        client: client,
-        bucket: str,
-        key: str
-):
-    resp = client.head_object(
-        Bucket=bucket,
-        Key=key,
-    )
-    return resp['ContentLength']
-    
-
 def check_blob_sizes(
         source_client: client,
         source_bucket: str,
@@ -41,17 +29,17 @@ def check_blob_sizes(
     try:
         # there were cases where replicated blobs were corrupt (typically, they had
         # length of zero octets); as a (weak) validation, at least compare sizes
-        replicated_len = get_s3_blob_size(
-            client=target_client,
-            bucket=target_bucket,
-            key=target_key
+        resp = target_client.head_object(
+            Bucket=target_bucket,
+            Key=target_key,
         )
+        replicated_len = resp['ContentLength']
 
-        source_len = get_s3_blob_size(
-            client=source_client,
-            bucket=source_bucket,
-            key=source_key
+        resp = source_client.head_object(
+            Bucket=source_bucket,
+            Key=source_key,
         )
+        source_len = resp['ContentLength']
 
         if replicated_len == source_len:
             logger.info(f"replicated blob sizes match: {source_len=}, {replicated_len=}")
@@ -109,6 +97,7 @@ def replicate_image_blobs(
                 )
                 continue
 
+            image_size = 0
             try:
                 # XXX: we _might_ split stream to multiple targets; however, as of now there is only
                 # one single replication target, so skip this optimisation for now
@@ -116,11 +105,11 @@ def replicate_image_blobs(
                     Bucket=source_bucket.bucket_name,
                     Key=image_blob_ref.s3_key,
                 )
-                leng = resp['ContentLength']
+                image_size = resp['ContentLength']
                 body = resp['Body']
 
                 logger.info(f'streaming to {target_bucket.bucket_name=} for {target_bucket.aws_cfg_name=}, {image_blob_ref.s3_key=}')
-                logger.info(f'.. this may take a couple of minutes ({leng} octets)')
+                logger.info(f'.. this may take a couple of minutes ({image_size} octets)')
                 s3_target_client.upload_fileobj(
                     Fileobj=body,
                     Bucket=target_bucket.bucket_name,
@@ -134,12 +123,6 @@ def replicate_image_blobs(
                 logger.warning(f'there was an error trying to replicate using streaming: {e}')
                 logger.info('falling back to tempfile-backed replication')
 
-                image_size = get_s3_blob_size(
-                    client=s3_source_client,
-                    bucket=source_bucket.bucket_name,
-                    key=image_blob_ref.s3_key
-                )
-                
                 with tempfile.TemporaryFile() as tf:
                     s3_source_client.download_fileobj(
                         Bucket=source_bucket.bucket_name,
@@ -154,33 +137,22 @@ def replicate_image_blobs(
                     logger.info(f"downloaded to tempfile ({tempfile_size=})")
                     tf.seek(0, os.SEEK_SET)
 
-                    max_attempts = 20
+                    s3_target_client.upload_fileobj(
+                        Fileobj=tf,
+                        Bucket=target_bucket.bucket_name,
+                        Key=image_blob_ref.s3_key,
+                        Config=bt.TransferConfig(
+                            use_threads=True,
+                            max_concurrency=5,
+                            num_download_attempts=20, # be very persistent before giving up
+                            # rationale: we sometimes see "sporadic"
+                            # connectivity issues when uploading through "great
+                            # chinese firewall"
+                        ),
+                    )
 
-                    for attempt in range(max_attempts):
-                        logger.info(f'uploading to S3 for {target_bucket.aws_cfg_name=} - attempt {attempt + 1} of {max_attempts}...')
-                        try:
-                            s3_target_client.upload_fileobj(
-                                Fileobj=tf,
-                                Bucket=target_bucket.bucket_name,
-                                Key=image_blob_ref.s3_key,
-                                Config=bt.TransferConfig(
-                                    use_threads=True,
-                                    max_concurrency=5,
-                                    num_download_attempts=20, # be very persistent before giving up
-                                    # rationale: we sometimes see "sporadic"
-                                    # connectivity issues when uploading through "great
-                                    # chinese firewall"
-                                ),
-                            )
-                            break  # if we got here, it means the above instruction succeeded without exception and we can exit the retry-loop
-                        except (botocore.exceptions.ReadTimeoutError, botocore.exceptions.IncompleteReadError) as e:
-                            if attempt + 1 >= max_attempts:
-                                logger.error(f"Failed to upload to S3 within {max_attempts} attempts.")
-                                raise e
-                            else:
-                                logger.warning(f"Failed to upload to S3 during attempt {attempt + 1} of {max_attempts}, will retry: {e}")
-                                continue
-
+            # check again that the transferred/replicated blob in the target has the same size as in the source, if this is not the case because of
+            # errors in above upload_fileobj(), vm-image-imports will fail with misleading errors
             if check_blob_sizes(
                 s3_source_client,
                 source_bucket.bucket_name,
