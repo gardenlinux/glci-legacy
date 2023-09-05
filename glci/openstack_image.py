@@ -95,6 +95,7 @@ class OpenstackImageUploader:
                 sleep(wait_interval_seconds)
                 continue
             if image['status'] == 'active':
+                logger.info(f"Image is ready in region {self.openstack_env.region}: {image_id=}")
                 return
             raise RuntimeError(
                 f"Image upload to Glance failed in region {self.openstack_env.region} due "

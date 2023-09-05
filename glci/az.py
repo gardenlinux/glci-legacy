@@ -510,7 +510,6 @@ def _append_hyper_v_generation(s: str, generation: glci.model.AzureHyperVGenerat
         return f"{s}-gen2"
     return s
 
-
 def _create_shared_image(
     cclient: ComputeManagementClient,
     sbclient: SubscriptionClient,
@@ -554,47 +553,19 @@ def _create_shared_image(
         for l in sbclient.subscriptions.list_locations(subscription_id)
     }
     regions.add(shared_gallery_cfg.location) # ensure that the gallery's location is present
+
     # rm regions not yet supported (although they are returned by the subscription-client)
-    try:
-        regions.remove('australiacentral2')
-    except KeyError:
-        pass
-    try:
-        regions.remove('brazilsoutheast')
-    except KeyError:
-        pass
-    try:
-        regions.remove('brazilus')
-    except KeyError:
-        pass
-    try:
-        regions.remove('francesouth')
-    except KeyError:
-        pass
-    try:
-        regions.remove('germanynorth')
-    except KeyError:
-        pass
-    try:
-        regions.remove('jioindiacentral')
-    except KeyError:
-        pass
-    try:
-        regions.remove('norwaywest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('southafricawest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('switzerlandwest')
-    except KeyError:
-        pass
-    try:
-        regions.remove('uaecentral')
-    except KeyError:
-        pass
+    regions -= {
+        'australiacentral2',
+        'brazilsoutheast',
+        'francesouth',
+        'germanynorth',
+        'jioindiacentral',
+        'norwaywest',
+        'southafricawest',
+        'switzerlandwest',
+        'uaecentral'
+    }
 
     logger.info(f'Creating gallery image version {image_version=}')
     result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
