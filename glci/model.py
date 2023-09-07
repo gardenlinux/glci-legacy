@@ -475,7 +475,7 @@ def canonical_features(platform: Platform, modifiers, architecture, version) -> 
 def canonical_name(
     platform: Platform,
     modifiers,
-    version: str,
+    version: str|None=None,
     architecture: Architecture|None=None,
 ) -> str:
     '''Calculates the canonical name of a gardenlinux flavour.
@@ -784,6 +784,15 @@ class OpenStackImageProperties:
 class OcmCfg:
     component_repository_cfg_name: str
 
+@dataclasses.dataclass
+class S3_ManifestVersion:
+    epoch: str
+    version: str
+    committish: str
+
+@dataclasses.dataclass
+class S3_Manifest(S3_ManifestVersion):
+    manifest_key: str
 
 @dataclasses.dataclass
 class PublishingCfg:
@@ -1050,20 +1059,28 @@ def feature_by_name(feature_name: str):
 def _garden_feat(
     platform: str,
     modifiers: typing.Tuple[str, ...],
-    arch: str,
-    version: str,
+    arch: str|None,
+    version: str|None,
     cmd: str = 'cname',
 ) -> str:
+    if not version or not arch:
+        cmd = "cname_base"
+
     all_mods = set(tuple(modifiers) + (platform,))
     feature_binary = os.path.abspath(os.path.join(paths.gardenlinux_builder_dir, 'builder', 'parse_features'))
     feature_args=[
             feature_binary,
             '--feature-dir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
             '--features', ','.join(all_mods),
-            "--arch", arch,
-            "--version", version,
-            cmd,
-        ]
+    ]
+
+    if arch:
+        feature_args.extend(["--arch", arch])
+    
+    if version:
+        feature_args.extend(["--version", version])
+
+    feature_args.append(cmd)
 
     parse_features_proc = None
     try:

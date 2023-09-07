@@ -491,7 +491,13 @@ def ls_manifests():
     parser = argparse.ArgumentParser()
 
     _add_flavourset_args(parser)
+    _add_publishing_cfg_args(parser)
 
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="if given, filters for a specific version",
+    )
     parser.add_argument(
         '--version-prefix',
         default=None,
@@ -500,13 +506,20 @@ def ls_manifests():
     parser.add_argument(
         '--print',
         default='all',
-        choices=('all', 'versions', 'versions-and-commits'),
+        choices=('all', 'versions', 'versions-and-commits', 'latest'),
+    )
+    parser.add_argument(
+        '--yaml',
+        nargs=1,
+        help="write output to specified yaml file"
     )
 
     parsed = parser.parse_args()
 
     flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
+
+    version = parsed.version
 
     def iter_manifest_prefixes():
         key_prefix = glci.model.ReleaseIdentifier.manifest_key_prefix
@@ -517,6 +530,7 @@ def ls_manifests():
                 platform=f.platform,
                 modifiers=f.modifiers,
                 architecture=f.architecture,
+                version=version,
             )
             prefix = f'{key_prefix}/{cname}'
 
@@ -525,12 +539,10 @@ def ls_manifests():
 
             yield prefix
 
-    cfg = glci.util.publishing_cfg()
+    cfg = _publishing_cfg(parsed)
     s3_client = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
 
-    versions = set()
-    versions_and_commits = set()
-
+    manifests = list()
     for prefix in iter_manifest_prefixes():
         matching_manifests = s3_client.list_objects_v2(
             Bucket=cfg.origin_buildresult_bucket.bucket_name,
@@ -538,18 +550,38 @@ def ls_manifests():
         )
         for entry in matching_manifests['Contents']:
             key = entry['Key']
+            _, version, commit = key.rsplit('-', 2)
+            epoch, _ = version.split('.')
+            s = glci.model.S3_Manifest(
+                manifest_key=key,
+                epoch=epoch,
+                version=version,
+                committish=commit
+            )
+            manifests.append(s)
+
+    manifests.sort(key=lambda v: float(v.version))
+
+    if parsed.print == 'latest':
+        m = manifests.pop()
+        if parsed.yaml:
+            v = glci.model.S3_ManifestVersion(
+                epoch=m.epoch,
+                version=m.version,
+                committish=m.committish
+            )
+            with open(parsed.yaml[0], "w") as f:
+                f.write(yaml.dump(v.__dict__))
+        else:
+            print(f"{m.version} {m.committish}")
+    else:
+        for m in manifests:
             if parsed.print == 'all':
-                print(key)
-            else:
-                _, version, commit = key.rsplit('-', 2)
-                if not version in versions:
-                    versions.add(version)
-                    if parsed.print == 'versions':
-                        print(version)
-                if not (version, commit) in versions_and_commits:
-                    versions_and_commits.add((version, commit))
-                    if parsed.print == 'versions-and-commits':
-                        print(f'{version} {commit}')
+                print(f"{m.manifest_key}")
+            elif parsed.print == 'versions':
+                print(f"{m.version}")
+            elif parsed.print == 'versions-and-commits':
+                print(f"{m.version} {m.committish}")
 
 
 def publish_release_set():
