@@ -651,27 +651,41 @@ def publish_release_set():
         default=False,
         help='if --phase is given, skip previous phases (for debugging purposes)',
     )
+    parser.add_argument(
+        "--infile",
+        nargs=1,
+        help="read version and committish from given YAML file"
+    )
 
     parsed = parser.parse_args()
 
-    if not bool(parsed.version) ^ bool(parsed.version_name):
-        logger.fatal('exactly one of --version, --version-name must be passed')
-        exit(1)
+    version = None
+    commit = None
 
-    if not bool(parsed.commit) ^ bool(parsed.version_name):
-        logger.fatal('exactly one of --commit, --version-name must be passed')
-        exit(1)
+    if not bool(parsed.infile):
+        if not bool(parsed.version) ^ bool(parsed.version_name):
+            logger.fatal('exactly one of --version, --version-name must be passed')
+            exit(1)
 
-    if parsed.version:
-        version = parsed.version
-        commit = parsed.commit
+        if not bool(parsed.commit) ^ bool(parsed.version_name):
+            logger.fatal('exactly one of --commit, --version-name must be passed')
+            exit(1)
 
-    if parsed.version_name:
-        publish_version = glci.util.publishing_version(
-            version_name=parsed.version_name,
-        )
-        version = publish_version.version
-        commit = publish_version.commit
+        if parsed.version:
+            version = parsed.version
+            commit = parsed.commit
+
+        if parsed.version_name:
+            publish_version = glci.util.publishing_version(
+                version_name=parsed.version_name,
+            )
+            version = publish_version.version
+            commit = publish_version.commit
+    else:
+        with open(parsed.infile[0]) as f:
+            input = yaml.safe_load(f)
+            version = input['version']
+            commit = input['committish']
 
     cfg = _publishing_cfg(parsed)
     cfg_factory = ctx.cfg_factory()
