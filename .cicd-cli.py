@@ -13,8 +13,6 @@ import sys
 import yaml
 
 import component_descriptor as cd
-import publish
-import replicate
 
 import ccc.aws
 import cnudie.upload
@@ -442,6 +440,8 @@ def _publishing_cfg(parsed):
 
 
 def replicate_blobs():
+    import replicate    # late import because unneeded for the other functions
+
     parser = argparse.ArgumentParser()
     _add_flavourset_args(parser)
     _add_publishing_cfg_args(parser)
@@ -585,6 +585,9 @@ def ls_manifests():
 
 
 def publish_release_set():
+    import publish      # late import because unneeded for the other funtions
+    import replicate    # late import because unneeded for the other funtions
+
     parser = argparse.ArgumentParser(
         description='run all sub-steps for publishing gardenlinux to all target hyperscalers',
     )
