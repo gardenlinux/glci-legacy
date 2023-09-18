@@ -783,6 +783,7 @@ class OpenStackImageProperties:
 @dataclasses.dataclass
 class OcmCfg:
     component_repository_cfg_name: str
+    overwrite_compnent_descriptor: typing.Optional[bool]
 
 @dataclasses.dataclass
 class S3_ManifestVersion:

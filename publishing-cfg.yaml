@@ -74,6 +74,7 @@
       aws_cfg_name: 'gardenlinux-integration-test'
   ocm:
     component_repository_cfg_name: 'gardenlinux-test'
+    overwrite_component_descriptor: true
   targets:
     - platform: 'aws'
       aws_cfgs:

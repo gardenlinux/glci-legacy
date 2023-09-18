@@ -891,8 +891,15 @@ def publish_release_set():
         pprint.pprint(component_descriptor)
 
     phase_logger.info('publishing component-descriptor')
+
+    if cfg.ocm.overwrite_compnent_descriptor:
+        on_exist=cnudie.upload.UploadMode.OVERWRITE
+    else:
+        on_exist=cnudie.upload.UploadMode.SKIP
+
     cnudie.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
+        on_exist=on_exist
     )
 
     end_phase(phase_component_descriptor)
