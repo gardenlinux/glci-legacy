@@ -558,6 +558,7 @@ def _create_shared_image(
     regions -= {
         'australiacentral2',
         'brazilsoutheast',
+        'brazilus',
         'francesouth',
         'germanynorth',
         'jioindiacentral',
