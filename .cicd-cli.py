@@ -15,9 +15,9 @@ import yaml
 import component_descriptor as cd
 import publish
 import replicate
-import product.v2
 
 import ccc.aws
+import cnudie.upload
 import ctx
 
 logger = logging.getLogger('gardenlinux-cli')
@@ -836,8 +836,8 @@ def publish_release_set():
         pprint.pprint(component_descriptor)
 
     phase_logger.info('publishing component-descriptor')
-    product.v2.upload_component_descriptor_v2_to_oci_registry(
-        component_descriptor_v2=component_descriptor,
+    cnudie.upload.upload_component_descriptor(
+        component_descriptor=component_descriptor,
     )
 
     end_phase(phase_component_descriptor)

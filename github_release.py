@@ -2,9 +2,11 @@ import os
 
 from string import Template
 
+import gci.componentmodel as cm
+
 import ctx
 import glci.model
-import product.v2
+import cnudie.retrieve
 import release
 
 
@@ -222,12 +224,15 @@ def make_release(
     cfg = f.ctx_repository(ctx_repository_config_name)
     ctx_repo_base_url = cfg.base_url()
 
-    comp_descr = product.v2.download_component_descriptor_v2(
-        component_name='github.com/gardenlinux/gardenlinux',
-        component_version=version,
-        ctx_repo_base_url=ctx_repo_base_url,
-        cache_dir=None,
+    lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
+        default_ctx_repo=cm.OciRepositoryContext(base_url=ctx_repo_base_url)
     )
+
+    comp_descr = lookup(cm.ComponentIdentity(
+        name='github.com/gardenlinux/gardenlinux',
+        version=version,
+
+    ))
 
     with open(os.path.join(repo_dir, 'component-descriptor'), 'w') as out_file:
         comp_descr.to_fobj(out_file)
