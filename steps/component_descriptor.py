@@ -10,9 +10,9 @@ import glci.model
 import glci.s3
 import glci.util
 
+import cnudie.upload
 import ctx
 import gci.componentmodel as cm
-import product.v2
 import version as version_util
 
 logger = logging.getLogger(__name__)
@@ -183,9 +183,9 @@ def build_component_descriptor(
     )
 
     if glci.model.BuildTarget.COMPONENT_DESCRIPTOR in build_target_set:
-        product.v2.upload_component_descriptor_v2_to_oci_registry(
-            component_descriptor_v2=component_descriptor,
-            on_exist=product.v2.UploadMode.OVERWRITE,
+        cnudie.upload.upload_component_descriptor(
+            component_descriptor=component_descriptor,
+            on_exist=cnudie.upload.UploadMode.OVERWRITE,
         )
 
     if snapshot_repo_base_url:
@@ -197,9 +197,9 @@ def build_component_descriptor(
             component_descriptor.component.repositoryContexts.append(repo_ctx)
 
         # upload obeys the appended repo_ctx
-        product.v2.upload_component_descriptor_v2_to_oci_registry(
-            component_descriptor_v2=component_descriptor,
-            on_exist=product.v2.UploadMode.OVERWRITE,
+        cnudie.upload.upload_component_descriptor(
+            component_descriptor=component_descriptor,
+            on_exist=cnudie.upload.UploadMode.OVERWRITE,
         )
 
 
