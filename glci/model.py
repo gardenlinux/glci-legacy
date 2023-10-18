@@ -773,9 +773,19 @@ class PublishingTargetAzure:
 @dataclasses.dataclass
 class PublishingTargetOpenstack:
     environment_cfg_name: str
-    image_properties_cfg_name: str
+    image_properties: typing.Optional[dict[str, str]]
+    suffix: typing.Optional[str]
     platform: Platform = 'openstack' # should not overwrite
 
+@dataclasses.dataclass
+class PublishingTargetOpenstackBareMetal(PublishingTargetOpenstack):
+    platform: Platform = 'openstackbaremetal' # should not overwrite
+
+
+@dataclasses.dataclass
+class OpenStackImageProperties:
+    hypervisor_type: str
+    openstack_properties: dict[str, str]
 
 @dataclasses.dataclass
 class OcmCfg:
@@ -1017,7 +1027,9 @@ def platform_names():
 
 def modifiers():
     return {
-        feature for feature in features() if feature.type is FeatureType.MODIFIER
+        # HACK: including metal here is a terrible hack to get the openstackbaremetal flavour out
+        # this needs to be fixed on Garden Linux side by making metal a modifier, not a platform
+        feature for feature in features() if feature.type is FeatureType.MODIFIER or feature.name == 'metal'
     }
 
 
@@ -1035,15 +1047,20 @@ def _garden_feat(
 ) -> str:
     all_mods = set(tuple(modifiers) + (platform,))
     garden_feat_binary = os.path.abspath(os.path.join(paths.gardenlinux_dir, 'bin', 'garden-feat'))
-    completed = subprocess.run(
-        args=[
-            garden_feat_binary,
-            '--featureDir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
-            '--features', ','.join(all_mods),
-            cmd,
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        completed = subprocess.run(
+            args=[
+                garden_feat_binary,
+                '--featureDir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
+                '--features', ','.join(all_mods),
+                '--warn-only',
+                cmd,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess error: {e.stdout=} {e.stderr=}")
+        raise e
     return completed.stdout.strip()

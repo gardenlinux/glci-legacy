@@ -38,4 +38,17 @@
       publish_to_community_galleries: false
     - platform: 'openstack'
       environment_cfg_name: 'gardenlinux'
-      image_properties_cfg_name: 'gardenlinux'
+      image_properties:
+        hypervisor_type: vmware
+        vmware_ostype: debian10_64Guest
+        hw_vif_model: vmxnet3
+        hw_disk_bus: scsi
+        vmware_adaptertype: paraVirtual
+        vmware_disktype: streamOptimized
+    - platform: 'openstackbaremetal'
+      environment_cfg_name: 'gardenlinux'
+      suffix: 'baremetal'
+      image_properties:
+        hypervisor_type: baremetal
+        os_distro: debian10_64Guest
+        img_config_drive: mandatory

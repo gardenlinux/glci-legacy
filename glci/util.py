@@ -519,6 +519,7 @@ def vm_image_artefact_for_platform(platform: glci.model.Platform) -> str:
         'metal': '.tar.xz',
         'oci': '.tar.xz',
         'openstack': '.vmdk',
+        'openstackbaremetal': '.vmdk',
         'vmware': '.ova',
     }
 
