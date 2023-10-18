@@ -751,9 +751,19 @@ class PublishingTargetAzure:
 @dataclasses.dataclass
 class PublishingTargetOpenstack:
     environment_cfg_name: str
-    image_properties_cfg_name: str
+    image_properties: typing.Optional[dict[str, str]]
+    suffix: typing.Optional[str]
     platform: Platform = 'openstack' # should not overwrite
 
+@dataclasses.dataclass
+class PublishingTargetOpenstackBareMetal(PublishingTargetOpenstack):
+    platform: Platform = 'openstackbaremetal' # should not overwrite
+
+
+@dataclasses.dataclass
+class OpenStackImageProperties:
+    hypervisor_type: str
+    openstack_properties: dict[str, str]
 
 @dataclasses.dataclass
 class OcmCfg:
@@ -995,7 +1005,9 @@ def platform_names():
 
 def modifiers():
     return {
-        feature for feature in features() if feature.type is FeatureType.MODIFIER
+        # HACK: including metal here is a terrible hack to get the openstackbaremetal flavour out
+        # this needs to be fixed on Garden Linux side by making metal a modifier, not a platform
+        feature for feature in features() if feature.type is FeatureType.MODIFIER or feature.name == 'metal'
     }
 
 

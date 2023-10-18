@@ -108,10 +108,14 @@ def upload_and_publish_image(
     openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
     image_properties: dict,
     release: glci.model.OnlineReleaseManifest,
+    suffix: str = None,
 ) -> glci.model.OnlineReleaseManifest:
     """Import an image from S3 into OpenStack Glance."""
 
     image_name = f"gardenlinux-{release.version}"
+    if suffix and len(suffix) > 0:
+        image_name = f"{image_name}-{suffix}"
+
     image_meta = {
         'architecture': release.architecture.name,
         'properties': image_properties,
