@@ -890,7 +890,12 @@ def publish_release_set():
     if parsed.print_component_descriptor:
         pprint.pprint(component_descriptor)
 
+    repository_context = component_descriptor.component.repositoryContexts[0].baseUrl
+    component_name = component_descriptor.component.name
+    component_version = component_descriptor.component.version
+
     phase_logger.info('publishing component-descriptor')
+    phase_logger.info(f'{repository_context=} {component_name=} {component_version=}')
 
     if cfg.ocm.overwrite_compnent_descriptor:
         on_exist=cnudie.upload.UploadMode.OVERWRITE
