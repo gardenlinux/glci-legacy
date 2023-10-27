@@ -299,7 +299,8 @@ def image_ids_by_name(
 def unregister_images_by_name(
     mk_session: callable,
     image_name: str,
-    region_names: typing.Sequence[str]=None,
+    dry_run: bool,
+    region_names: typing.Sequence[str]=None
 ):
     if not region_names:
         ec2_client = mk_session().client('ec2')
@@ -317,9 +318,78 @@ def unregister_images_by_name(
     ):
         def unregister_image():
             ec2 = mk_session(region_name=region_name).client('ec2')
-            ec2.deregister_image(ImageId=image_id)
-            logger.info(f'unregistered {image_id=}')
+            if dry_run:
+                logger.warning(f'DRY RUN: would unregister {image_id=} in {region_name}')
+            else:
+                ec2.deregister_image(ImageId=image_id)
+                logger.info(f'unregistered {image_id=} in {region_name}')
         results.append(executor.submit(unregister_image))
+
+    concurrent.futures.wait(results)
+
+
+def _get_snapshots_for_image(
+        client: 'botocore.client.EC2',
+        image_id: str,
+):
+    snapshots = []
+    response = client.describe_images(
+        Owners=["self"], Filters=[{"Name": "image-id", "Values": [image_id]}]
+    )
+
+    if len(response["Images"]) > 0:
+        image = response["Images"][0]
+
+        for bdm in image.get("BlockDeviceMappings"):
+            snapshots.append(bdm["Ebs"]["SnapshotId"])
+
+    if len(snapshots) < 1:
+        logger.warning(f"no snapshots found for {image_id=}")
+    return snapshots
+
+
+def _delete_snapshots(
+        client: 'botocore.client.EC2',
+        snapshot_ids: list[str],
+        dry_run: bool
+):
+    for snapshot in snapshot_ids:
+        if dry_run:
+            logger.warning(f"DRY RUN: would delete {snapshot=}")
+        else:
+            client.delete_snapshot(SnapshotId=snapshot)
+            logger.info(f"deleted {snapshot=}")
+
+
+def unregister_images_by_id(
+    mk_session: callable,
+    images: glci.model.AwsPublishedImageSet,
+    dry_run: bool
+):
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(images))
+    results = []
+
+    for image in images:
+        def unregister_image(
+            image,
+        ):
+            ec2 = mk_session(region_name=image.aws_region_id).client('ec2')
+            response = response_ok(ec2.describe_images(
+                Owners=["self"], Filters=[{"Name": "image-id", "Values": [image.ami_id]}]
+            ))
+
+            if len(response["Images"]) == 0:
+                logger.warning(f"AMI with id {image.ami_id} is no longer present in {image.aws_region_id}")
+            else:
+                snapshots = _get_snapshots_for_image(ec2, image.ami_id)
+                if dry_run:
+                    logger.warning(f'DRY RUN: would unregister {image.ami_id=} in {image.aws_region_id}')
+                else:
+                    ec2.deregister_image(ImageId=image.ami_id)
+                    logger.info(f'unregistered {image.ami_id=} in {image.aws_region_id}')
+                _delete_snapshots(ec2, snapshots, dry_run=dry_run)
+
+        results.append(executor.submit(unregister_image(image)))
 
     concurrent.futures.wait(results)
 
@@ -443,6 +513,7 @@ def upload_and_register_gardenlinux_image(
             unregister_images_by_name(
                 mk_session=mk_session,
                 image_name=target_image_name,
+                dry_run=False,
                 region_names=region_names,
             )
             raise

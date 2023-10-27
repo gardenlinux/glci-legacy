@@ -16,6 +16,7 @@ import component_descriptor as cd
 
 import ccc.aws
 import cnudie.upload
+import cnudie.retrieve
 import ctx
 
 logger = logging.getLogger('gardenlinux-cli')
@@ -25,7 +26,6 @@ ci_dir = os.path.join(own_dir, 'ci')
 
 sys.path.insert(1, ci_dir)
 
-import clean      # noqa: E402
 import glci.util  # noqa: E402
 import glci.model # noqa: E402
 import paths      # noqa: E402
@@ -61,6 +61,8 @@ class EnumAction(argparse.Action):
 
 
 def clean_build_result_repository():
+    import cleanup
+    
     parser = argparse.ArgumentParser(
         description='Cleanup in manifests repository (S3)',
         epilog='Warning: dangerous, use only if you know what you are doing!',
@@ -87,21 +89,21 @@ def clean_build_result_repository():
     cicd_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
 
     print('purging outdated build snapshot manifests')
-    clean.clean_single_release_manifests(
+    cleanup.clean_single_release_manifests(
         max_age_days=parsed.snapshot_max_age_days,
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
 
     print('purging outdated build result snapshot sets (release-candidates)')
-    clean.clean_release_manifest_sets(
+    cleanup.clean_release_manifest_sets(
         max_age_days=parsed.snapshot_max_age_days,
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
 
     print('purging loose objects')
-    clean.clean_orphaned_objects(
+    cleanup.clean_orphaned_objects(
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
@@ -429,8 +431,11 @@ def _flavourset(parsed):
     return flavour_set
 
 
-def _add_publishing_cfg_args(parser):
-    parser.add_argument('--cfg-name', default='default')
+def _add_publishing_cfg_args(
+        parser,
+        default: str = 'default'
+):
+    parser.add_argument('--cfg-name', default=default)
 
 
 def _publishing_cfg(parsed):
@@ -908,6 +913,160 @@ def publish_release_set():
     )
 
     end_phase(phase_component_descriptor)
+
+
+def cleanup_release_set():
+    import cleanup # late import because it is unneeded for the other functions in this swiss-army-knife of a tool
+    pp = pprint.PrettyPrinter(indent=4)
+
+    parser = argparse.ArgumentParser(
+        description='clean a release set from all target hyperscalers',
+    )
+    _add_publishing_cfg_args(parser, default="gardener-integration-test")
+    _add_flavourset_args(parser)
+
+    parser.add_argument(
+        '--version',
+    )
+    parser.add_argument(
+        '--ctx-repo',
+        help='the component-repo to retrieve gardenlinux-component-descriptor from',
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        '--platform',
+        action='append',
+        dest='platforms',
+        default=[],
+        help='if set, only specified platforms will be published to (default: publish to all)',
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=False,
+        help='dry-run, only pretend to delete artefacts but do not actually do it',
+    )
+    parser.add_argument(
+        '--print-manifest',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--print-component-descriptor',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        "--infile",
+        nargs=1,
+        help="read version from given YAML file"
+    )
+
+    parsed = parser.parse_args()
+
+    if bool(parsed.infile):
+        with open(parsed.infile[0]) as f:
+            input = yaml.safe_load(f)
+            version = input['version']
+    elif bool(parsed.version):
+        version = parsed.version
+    else:
+        raise RuntimeError(f"need to provide either --version or --infile parameter")
+
+    cfg = _publishing_cfg(parsed)
+    cfg_factory = ctx.cfg_factory()
+
+    if not parsed.ctx_repo:
+        ocm_cfg = cfg_factory.ctx_repository(cfg.ocm.component_repository_cfg_name)
+        ocm_repo_base_url = ocm_cfg.base_url()
+    else:
+        ocm_repo_base_url = parsed.ctx_repo
+
+    gardenlinux_component = cd.retrieve_component(
+        ctx_repository=ocm_repo_base_url,
+        component_name='github.com/gardenlinux/gardenlinux',
+        component_version=version,
+    )
+
+    if parsed.print_component_descriptor:
+        pp.pprint(gardenlinux_component)
+
+    commit = None
+
+    for s in gardenlinux_component.sources:
+        if s.name != "gardenlinux":
+            continue
+        commit = s.access.commit
+        break
+
+    target_manifest_buckets = tuple(cfg.target_manifest_buckets)
+    if len(target_manifest_buckets) == 0:
+        raise RuntimeError(f"no target manifest buckets specified")
+    elif len(target_manifest_buckets) > 1:
+        raise RuntimeError(f"more than one target manifest buckets specified - this is currently not supported")
+
+    s3_session = ccc.aws.session(target_manifest_buckets[0].aws_cfg_name)
+    s3_client = s3_session.client('s3')
+
+    flavour_set = _flavourset(parsed)
+    release_manifests = list(
+        glci.util.find_releases(
+            s3_client=s3_client,
+            bucket_name=target_manifest_buckets[0].bucket_name,
+            flavour_set=flavour_set,
+            build_committish=commit,
+            version=version,
+            gardenlinux_epoch=int(version.split('.')[0]),
+        )
+    )
+
+    logger.info(f"found {len(release_manifests)} release manifests in bucket {target_manifest_buckets[0].bucket_name}")
+
+    # todo: sanity check that it matches the published metadata in the component descriptor
+
+    for idx, manifest in enumerate(release_manifests):
+        if parsed.platforms and not manifest.platform in parsed.platforms:
+            logger.info(f'skipping {manifest.platform} (filter was set via ARGV)')
+            continue
+
+        if not manifest.published_image_metadata:
+            logger.info(f"manifest for platform {manifest.platform}/{manifest.architecture.value} does not contain publishing metadata, skipping")
+            continue
+
+        target_cfg = cfg.target(platform=manifest.platform, absent_ok=False)
+        if not target_cfg:
+            continue
+
+        logger.info(f'will cleanup images from {manifest.platform}/{manifest.architecture.value}')
+
+        updated_manifest = cleanup.cleanup_image(
+            release=manifest,
+            publishing_cfg=cfg,
+            dry_run=parsed.dry_run
+        )
+
+        if parsed.print_manifest:
+            pprint.pprint(updated_manifest)
+
+        release_manifests[idx] = updated_manifest
+
+        for target_manifest_bucket in target_manifest_buckets:
+            target = f'{target_manifest_bucket.bucket_name}/{manifest.s3_key}'
+            if parsed.dry_run:
+                logger.warning(f'DRY RUN: would update release-manifest at {target}')
+                continue
+            else:
+                logger.info(f'updating release-manifest at {target}')
+
+                glci.util.upload_release_manifest(
+                    s3_client=s3_client,
+                    bucket_name=target_manifest_bucket.bucket_name,
+                    key=manifest.s3_key,
+                    manifest=updated_manifest,
+                )
+
+        logger.info(f'cleaning up images for {manifest.platform}/{manifest.architecture.value} succeeded')
 
 
 def main():
