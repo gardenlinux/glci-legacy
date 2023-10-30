@@ -742,6 +742,7 @@ class PublishingTargetAWSAccount:
 @dataclasses.dataclass
 class PublishingTargetAWS:
     aws_cfgs: list[PublishingTargetAWSAccount]
+    image_tags: typing.Optional[ImageTagConfiguration]
     platform: Platform = 'aws' # should not overwrite
 
 
@@ -779,6 +780,13 @@ class PublishingTargetOpenstackBareMetal(PublishingTargetOpenstack):
 class OpenStackImageProperties:
     hypervisor_type: str
     openstack_properties: dict[str, str]
+
+@dataclasses.dataclass
+class ImageTagConfiguration:
+    include_gardenlinux_version: typing.Optional[bool]
+    include_gardenlinux_committish: typing.Optional[bool]
+    static_tags: typing.Optional[dict[str, str]]
+
 
 @dataclasses.dataclass
 class OcmCfg:

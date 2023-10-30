@@ -161,18 +161,6 @@ def register_image(
         VirtualizationType='hvm' # | paravirtual
     )
 
-    ec2_client.create_tags(
-        Resources=[
-            result['ImageId'],
-        ],
-        Tags=[
-            {
-                'Key': 'sec-by-def-public-image-exception',
-                'Value': 'enabled',
-            },
-        ]
-    )
-
     # XXX need to wait until image is available (before publishing)
     return result['ImageId']
 
@@ -270,6 +258,7 @@ def copy_image(
             SourceImageId=ami_image_id,
             SourceRegion=src_region_name,
             Name=image_name,
+            CopyImageTags=True
         )
         # XXX: return (new) image-AMI
         response_ok(res)
@@ -429,6 +418,36 @@ def target_image_name_for_release(release: glci.model.OnlineReleaseManifest):
     return target_image_name
 
 
+def calculate_aws_tags(
+    image_tag_cfg: glci.model.ImageTagConfiguration,
+    release: glci.model.OnlineReleaseManifest,
+) -> list[dict[str, str]]:
+    tags = []
+    if not image_tag_cfg:
+        return tags
+    if image_tag_cfg.include_gardenlinux_version:
+        tags.append({"Key": "gardenlinux-version", "Value": release.version})
+    if image_tag_cfg.include_gardenlinux_committish:
+        tags.append({"Key": "gardenlinux-committish", "Value": release.build_committish})
+    for s in image_tag_cfg.static_tags:
+        tags.append({"Key": s, "Value": image_tag_cfg.static_tags[s]})
+    return tags
+
+
+def attach_tags(
+        ec2_client: 'botocore.client.EC2',
+        resources: list[str],
+        tags: list[dict[str, str]]
+):
+    if len(tags) == 0:
+        return
+    
+    _ = response_ok(ec2_client.create_tags(
+        Resources=resources,
+        Tags=tags
+    ))
+
+
 def upload_and_register_gardenlinux_image(
     aws_publishing_cfg: glci.model.PublishingTargetAWS,
     publishing_cfg: glci.model.PublishingCfg,
@@ -438,6 +457,7 @@ def upload_and_register_gardenlinux_image(
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg: glci.model.PublishingTargetAWSAccount
         aws_cfg_name = aws_cfg.aws_cfg_name
+        tags = calculate_aws_tags(aws_publishing_cfg.image_tags, release)
 
         logger.info(
             f'Running AWS-Publication for aws-config {aws_cfg_name}.'
@@ -486,6 +506,7 @@ def upload_and_register_gardenlinux_image(
             ec2_client=ec2_client,
             snapshot_task_id=snapshot_task_id,
         )
+        attach_tags(ec2_client=ec2_client, resources=[snapshot_id], tags=tags)
         logger.info(f'import task finished {snapshot_id=}')
 
         initial_ami_id = register_image(
@@ -494,6 +515,7 @@ def upload_and_register_gardenlinux_image(
             image_name=target_image_name,
             architecture=_to_aws_architecture(release.architecture),
         )
+        attach_tags(ec2_client=ec2_client, resources=[initial_ami_id], tags=tags)
         logger.info(f'registered {initial_ami_id=}')
 
         region_names = tuple(enumerate_region_names(ec2_client=ec2_client, regions_to_include=aws_cfg.copy_regions))
