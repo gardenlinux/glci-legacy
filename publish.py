@@ -44,6 +44,9 @@ def publish_image(
     elif release.platform == 'openstack':
         publish_function = _publish_openstack_image
         cleanup_function = _cleanup_openstack_image
+    elif release.platform == 'openstackbaremetal':
+        publish_function = _publish_openstack_image
+        cleanup_function = _cleanup_openstack_image
     elif release.platform == 'oci':
         publish_function = _publish_oci_image
         cleanup_function = None
@@ -291,10 +294,6 @@ def _publish_openstack_image(
     username = openstack_environments_cfg.credentials().username()
     password = openstack_environments_cfg.credentials().passwd()
 
-    image_properties = cfg_factory.openstack_os_image(
-        openstack_publishing_cfg.image_properties_cfg_name,
-    ).raw['properties']
-
     openstack_env_cfgs = tuple((
         gm.OpenstackEnvironment(
             project_name=project.name(),
@@ -306,11 +305,14 @@ def _publish_openstack_image(
         ) for project in openstack_environments_cfg.projects()
     ))
 
+    image_properties = openstack_publishing_cfg.image_properties
+
     return glci.openstack_image.upload_and_publish_image(
         s3_client,
         openstack_environments_cfgs=openstack_env_cfgs,
         image_properties=image_properties,
         release=release,
+        suffix=openstack_publishing_cfg.suffix
     )
 
 

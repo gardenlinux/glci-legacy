@@ -645,7 +645,6 @@ def publish_release_set():
     cfg_factory = ctx.cfg_factory()
 
     flavour_set = _flavourset(parsed)
-    flavours = tuple(flavour_set.flavours())
 
     if len(commit) != 40:
         repo = git.Repo(path=paths.gardenlinux_dir)
