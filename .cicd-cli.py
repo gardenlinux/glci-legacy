@@ -755,7 +755,7 @@ def publish_release_set():
 
     source_manifest_bucket = cfg.source_manifest_bucket
     target_manifest_buckets = tuple(cfg.target_manifest_buckets)
-    if len(target_manifest_buckets) == 0:
+    if not target_manifest_buckets:
         target_manifest_buckets = (source_manifest_bucket,)
 
     s3_session = ccc.aws.session(source_manifest_bucket.aws_cfg_name)
