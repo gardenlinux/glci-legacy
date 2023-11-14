@@ -896,7 +896,7 @@ def publish_release_set():
     if parsed.print_component_descriptor:
         pprint.pprint(component_descriptor)
 
-    repository_context = component_descriptor.component.repositoryContexts[0].baseUrl
+    repository_context = component_descriptor.component.current_repository_ctx().baseUrl
     component_name = component_descriptor.component.name
     component_version = component_descriptor.component.version
 
