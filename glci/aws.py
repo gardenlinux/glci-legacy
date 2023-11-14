@@ -354,7 +354,7 @@ def unregister_images_by_id(
     images: glci.model.AwsPublishedImageSet,
     dry_run: bool
 ):
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=len(images))
+    executor = concurrent.futures.ThreadPoolExecutor()
     results = []
 
     for image in images:
