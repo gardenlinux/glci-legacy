@@ -269,7 +269,7 @@ class AlicloudImageMaker:
             if region_id == self.region:
                 continue
 
-            if self.regions_to_copy_to != None:
+            if self.regions_to_copy_to is not None:
                 if region_id in self.regions_to_copy_to:
                     region_ids.append(region_id)
             else:

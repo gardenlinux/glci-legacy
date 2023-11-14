@@ -171,7 +171,7 @@ def enumerate_region_names(
 ):
     for region in ec2_client.describe_regions()['Regions']:
         region_name = region['RegionName']
-        if regions_to_include != None:
+        if regions_to_include is not None:
             if region_name in regions_to_include:
                 yield region_name
         else:
@@ -326,13 +326,12 @@ def _get_snapshots_for_image(
         Owners=["self"], Filters=[{"Name": "image-id", "Values": [image_id]}]
     )
 
-    if len(response["Images"]) > 0:
+    if (response["Images"]):
         image = response["Images"][0]
 
         for bdm in image.get("BlockDeviceMappings"):
             snapshots.append(bdm["Ebs"]["SnapshotId"])
-
-    if len(snapshots) < 1:
+    else:
         logger.warning(f"no snapshots found for {image_id=}")
     return snapshots
 
