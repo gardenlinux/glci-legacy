@@ -511,7 +511,7 @@ def ls_manifests():
     parser.add_argument(
         '--print',
         default='all',
-        choices=('all', 'versions', 'versions-and-commits', 'latest'),
+        choices=('all', 'versions', 'versions-and-commits', 'greatest'),
     )
     parser.add_argument(
         '--yaml',
@@ -567,7 +567,7 @@ def ls_manifests():
 
     manifests.sort(key=lambda v: float(v.version))
 
-    if parsed.print == 'latest':
+    if parsed.print == 'greatest':
         m = manifests.pop()
         if parsed.yaml:
             v = glci.model.S3_ManifestVersion(
