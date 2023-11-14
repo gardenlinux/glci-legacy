@@ -984,11 +984,11 @@ def cleanup_release_set():
     else:
         ocm_repo_base_url = parsed.ocm_repo
 
-    gardenlinux_component = cd.retrieve_component(
-        ctx_repository=ocm_repo_base_url,
-        component_name='github.com/gardenlinux/gardenlinux',
-        component_version=version,
+    component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
+        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url)
     )
+
+    gardenlinux_component = component_descriptor_lookup(('github.com/gardenlinux/gardenlinux', version)).component
 
     if parsed.print_component_descriptor:
         pp.pprint(gardenlinux_component)

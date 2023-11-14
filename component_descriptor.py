@@ -108,24 +108,6 @@ def component_descriptor(
     return component_descriptor
 
 
-def retrieve_component(
-        ctx_repository: str,
-        component_name: str,
-        component_version: str,
-):
-    lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
-        default_ctx_repo=cm.OciRepositoryContext(baseUrl=ctx_repository),
-    )
-
-    gardenlinux_component_descriptor = lookup(
-        cm.ComponentIdentity(
-            name=component_name,
-            version=component_version,
-        )
-    )
-    return gardenlinux_component_descriptor.component
-
-
 def virtual_machine_image_resource(
     release_manifest: glci.model.OnlineReleaseManifest,
     version: str,
