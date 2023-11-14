@@ -929,7 +929,7 @@ def cleanup_release_set():
         '--version',
     )
     parser.add_argument(
-        '--ctx-repo',
+        '--ocm-repo',
         help='the component-repo to retrieve gardenlinux-component-descriptor from',
         default=None,
         required=False,
@@ -977,11 +977,11 @@ def cleanup_release_set():
     cfg = _publishing_cfg(parsed)
     cfg_factory = ctx.cfg_factory()
 
-    if not parsed.ctx_repo:
+    if not parsed.ocm_repo:
         ocm_cfg = cfg_factory.ctx_repository(cfg.ocm.component_repository_cfg_name)
         ocm_repo_base_url = ocm_cfg.base_url()
     else:
-        ocm_repo_base_url = parsed.ctx_repo
+        ocm_repo_base_url = parsed.ocm_repo
 
     gardenlinux_component = cd.retrieve_component(
         ctx_repository=ocm_repo_base_url,
