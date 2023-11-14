@@ -576,7 +576,7 @@ def ls_manifests():
                 committish=m.committish
             )
             with open(parsed.yaml[0], "w") as f:
-                f.write(yaml.dump(v.__dict__))
+                f.write(yaml.safe_dump(dataclasses.asdict(v)))
         else:
             print(f"{m.version} {m.committish}")
     else:
