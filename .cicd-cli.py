@@ -660,7 +660,7 @@ def publish_release_set():
         help='if --phase is given, skip previous phases (for debugging purposes)',
     )
     parser.add_argument(
-        "--infile",
+        "--version-file",
         nargs=1,
         help="read version and committish from given YAML file"
     )
@@ -670,7 +670,7 @@ def publish_release_set():
     version = None
     commit = None
 
-    if not bool(parsed.infile):
+    if not bool(parsed.version_file):
         if not bool(parsed.version) ^ bool(parsed.version_name):
             logger.fatal('exactly one of --version, --version-name must be passed')
             exit(1)
@@ -690,7 +690,7 @@ def publish_release_set():
             version = publish_version.version
             commit = publish_version.commit
     else:
-        with open(parsed.infile[0]) as f:
+        with open(parsed.version_file[0]) as f:
             input = yaml.safe_load(f)
             version = input['version']
             commit = input['committish']
@@ -958,21 +958,21 @@ def cleanup_release_set():
         default=False,
     )
     parser.add_argument(
-        "--infile",
+        "--version-file",
         nargs=1,
         help="read version from given YAML file"
     )
 
     parsed = parser.parse_args()
 
-    if bool(parsed.infile):
-        with open(parsed.infile[0]) as f:
+    if bool(parsed.version_file):
+        with open(parsed.version_file[0]) as f:
             input = yaml.safe_load(f)
             version = input['version']
     elif bool(parsed.version):
         version = parsed.version
     else:
-        raise RuntimeError(f"need to provide either --version or --infile parameter")
+        raise RuntimeError(f"need to provide either --version or --version-file parameter")
 
     cfg = _publishing_cfg(parsed)
     cfg_factory = ctx.cfg_factory()
