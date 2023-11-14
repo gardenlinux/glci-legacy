@@ -18,6 +18,7 @@ import ccc.aws
 import cnudie.upload
 import cnudie.retrieve
 import ctx
+import version as cc_version
 
 logger = logging.getLogger('gardenlinux-cli')
 
@@ -565,7 +566,7 @@ def ls_manifests():
             )
             manifests.append(s)
 
-    manifests.sort(key=lambda v: float(v.version))
+    manifests.sort(key=lambda v: cc_version.greatest_version([cc_version.parse_to_semver(v.version)]))
 
     if parsed.print == 'greatest':
         m = manifests.pop()
