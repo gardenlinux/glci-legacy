@@ -168,8 +168,6 @@ def cleanup_openstack_images(
     )
 
 
-## functions moved over from clean.py
-
 def clean_release_manifest_sets(
     max_age_days: int=14,
     cicd_cfg=None,
