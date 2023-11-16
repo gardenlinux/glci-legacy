@@ -238,22 +238,26 @@ def _publish_openstack_image(
     username = openstack_environments_cfg.credentials().username()
     password = openstack_environments_cfg.credentials().passwd()
 
-    openstack_env_cfgs = tuple((
-        gm.OpenstackEnvironment(
+    openstack_env_cfgs = []
+    for project in openstack_environments_cfg.projects():
+        if openstack_publishing_cfg and project.region() not in openstack_publishing_cfg.copy_regions:
+            continue
+
+        openstack_env_cfgs.append(gm.OpenstackEnvironment(
             project_name=project.name(),
             domain=project.domain(),
             region=project.region(),
             auth_url=project.auth_url(),
             username=username,
             password=password,
-        ) for project in openstack_environments_cfg.projects()
-    ))
+        )
+    )
 
     image_properties = openstack_publishing_cfg.image_properties
 
     return glci.openstack_image.upload_and_publish_image(
         s3_client,
-        openstack_environments_cfgs=openstack_env_cfgs,
+        openstack_environments_cfgs=tuple(openstack_env_cfgs),
         image_properties=image_properties,
         release=release,
         suffix=openstack_publishing_cfg.suffix
