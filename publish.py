@@ -247,6 +247,8 @@ def _publish_openstack_image(
             username=username,
             password=password,
         ) for project in openstack_environments_cfg.projects()
+            if not openstack_publishing_cfg.copy_regions
+                or project.region() in openstack_publishing_cfg.copy_regions
     ))
 
     image_properties = openstack_publishing_cfg.image_properties

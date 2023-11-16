@@ -91,3 +91,14 @@
           sec-by-def-public-image-exception: enabled
           purpose: test
           test-type: gardener-integration
+    - platform: 'openstack'
+      environment_cfg_name: 'gardenlinux'
+      suffix: 'int-test'
+      copy_regions: ['eu-nl-1']
+      image_properties:
+        hypervisor_type: vmware
+        vmware_ostype: debian10_64Guest
+        hw_vif_model: vmxnet3
+        hw_disk_bus: scsi
+        vmware_adaptertype: paraVirtual
+        vmware_disktype: streamOptimized

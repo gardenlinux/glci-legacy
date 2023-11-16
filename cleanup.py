@@ -12,6 +12,8 @@ import typing
 
 import glci.aws
 import glci.gcp
+import glci.openstack_image
+
 import glci.model as gm
 import glci.util
 
@@ -27,7 +29,9 @@ def cleanup_image(
     publishing_cfg: gm.PublishingCfg,
     dry_run: bool,
 ) -> gm.OnlineReleaseManifest:
-    logger.info(f'running release for {release.platform=}')
+    logger.info(f'cleaning up release for {release.platform=}')
+    if dry_run:
+        logger.warning(f"Running in DRY RUN mode {dry_run=}")
 
     if release.platform == 'ali':
         cleanup_function = None # clean_alicloud_images
@@ -38,7 +42,7 @@ def cleanup_image(
     elif release.platform == 'azure':
         cleanup_function = None
     elif release.platform == 'openstack':
-        cleanup_function = None # cleanup_openstack_images
+        cleanup_function = cleanup_openstack_images_by_id
     elif release.platform == 'oci':
         cleanup_function = None
     else:
@@ -132,13 +136,54 @@ def cleanup_gcp_images(
     )
 
 
+def cleanup_openstack_images_by_id(
+    release: gm.OnlineReleaseManifest,
+    publishing_cfg: gm.PublishingCfg,
+    dry_run: bool = False
+):
+    openstack_publishing_cfg: gm.PublishingTargetOpenstack = publishing_cfg.target(
+        platform=release.platform,
+    )
+
+    cfg_factory = ci.util.ctx().cfg_factory()
+    openstack_environments_cfg = cfg_factory.ccee(
+        openstack_publishing_cfg.environment_cfg_name,
+    )
+
+    username = openstack_environments_cfg.credentials().username()
+    password = openstack_environments_cfg.credentials().passwd()
+
+    openstack_env_cfgs = {
+        project.region(): gm.OpenstackEnvironment(
+                project_name=project.name(),
+                domain=project.domain(),
+                region=project.region(),
+                auth_url=project.auth_url(),
+                username=username,
+                password=password,
+        ) for project in openstack_environments_cfg.projects()
+    }
+
+    published_images = release.published_image_metadata.published_openstack_images
+
+    for image in published_images:
+        openstack_env = openstack_env_cfgs.get(image.region_name, None)
+        if not openstack_env:
+            logger.error(f"Cannot remove image {image.image_id} because of missing OpenStack config for region {image.region_name}")
+            continue
+
+        glci.openstack_image.delete_single_image(
+            openstack_environment_cfg=openstack_env,
+            image_id=image.image_id,
+            dry_run=dry_run
+        )
+
+
 def cleanup_openstack_images(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
+    dry_run: bool = False
 ):
-    import glci.openstack_image
-    import ci.util
-
     openstack_publishing_cfg: gm.PublishingTargetOpenstack = publishing_cfg.target(
         platform=release.platform,
     )
@@ -165,6 +210,8 @@ def cleanup_openstack_images(
     glci.openstack_image.delete_images_for_release(
         openstack_environments_cfgs=openstack_env_cfgs,
         release=release,
+        suffix=openstack_publishing_cfg.suffix,
+        dry_run=dry_run
     )
 
 

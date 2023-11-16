@@ -769,6 +769,7 @@ class PublishingTargetOpenstack:
     environment_cfg_name: str
     image_properties: typing.Optional[dict[str, str]]
     suffix: typing.Optional[str]
+    copy_regions: typing.Optional[list[str]]
     platform: Platform = 'openstack' # should not overwrite
 
 @dataclasses.dataclass

@@ -47,12 +47,16 @@ class OpenstackImageUploader:
     def delete_image(
         self,
         image_name: str,
+        dry_run: bool
     ):
         conn = self._get_connection()
-        if (image_id := conn.image.find_image(name_or_id=image_name)):
-            conn.image.delete_image(
-                image=image_id,
-            )
+        region=conn.current_location.region_name
+        if (image := conn.image.find_image(name_or_id=image_name)):
+            if dry_run:
+                logger.warning(f"DRY RUN: would delete image with {image.id=} in {region=}")
+            else:
+                conn.image.delete_image(image=image)
+                logger.info(f"deleted image with {image.id=} in {region=}")
 
     def upload_image_from_url(self, name: str, url :str, meta: dict, timeout_seconds=86400):
         '''Import an image from web url to Openstack Glance.'''
@@ -152,10 +156,26 @@ def upload_and_publish_image(
 def delete_images_for_release(
     openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
     release: glci.model.OnlineReleaseManifest,
+    dry_run: bool,
+    suffix: str = None,
 ) -> glci.model.OnlineReleaseManifest:
     """Delete all images created by a given release"""
 
     image_name = f"gardenlinux-{release.version}"
+    if suffix:
+        image_name = f"{image_name}-{suffix}"
+
     for env_cfg in openstack_environments_cfgs:
         uploader = OpenstackImageUploader(env_cfg)
-        uploader.delete_image(image_name=image_name)
+        uploader.delete_image(image_name=image_name, dry_run=dry_run)
+
+
+def delete_single_image(
+    openstack_environment_cfg: glci.model.OpenstackEnvironment,
+    image_id: str,
+    dry_run: bool
+) -> glci.model.OnlineReleaseManifest:
+    """Delete a single image identified by ID in a given region"""
+
+    uploader = OpenstackImageUploader(openstack_environment_cfg)
+    uploader.delete_image(image_name=image_id, dry_run=dry_run)
