@@ -1,4 +1,9 @@
 - name: 'default'
+  manifest_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux'
   buildresult_s3_buckets:
     - name: 'origin'
       role: 'source'
@@ -22,6 +27,9 @@
           buildresult_bucket: 'origin'
         - aws_cfg_name: 'gardenlinux-cn'
           buildresult_bucket: 'replica-cn'
+      image_tags:
+        static_tags:
+          sec-by-def-public-image-exception: enabled
     - platform: 'gcp'
       gcp_cfg_name: 'gardenlinux'
       gcp_bucket_name: 'gardenlinux-images'
@@ -52,3 +60,34 @@
         hypervisor_type: baremetal
         os_distro: debian10_64Guest
         img_config_drive: mandatory
+- name: 'gardener-integration-test'
+  manifest_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux-integration-test'
+    - name: 'tests'
+      role: 'target'
+      bucket_name: 'gardenlinux-test-import'
+      aws_cfg_name: 'gardenlinux-integration-test'
+  buildresult_s3_buckets:
+    - name: 'origin'
+      role: 'source'
+      bucket_name: 'gardenlinux-github-releases'
+      aws_cfg_name: 'gardenlinux-integration-test'
+  ocm:
+    component_repository_cfg_name: 'gardenlinux-test'
+    overwrite_component_descriptor: true
+  targets:
+    - platform: 'aws'
+      aws_cfgs:
+        - aws_cfg_name: 'gardenlinux-integration-test'
+          buildresult_bucket: 'origin'
+          copy_regions: ['eu-west-1']
+      image_tags:
+        include_gardenlinux_version: true
+        include_gardenlinux_committish: true
+        static_tags:
+          sec-by-def-public-image-exception: enabled
+          purpose: test
+          test-type: gardener-integration

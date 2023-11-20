@@ -6,9 +6,10 @@ Promotes the specified build results (represented by build result manifests in S
 An example being the promotion of a build snapshot to a daily build.
 '''
 
-import functools
 import logging
 import logging.config
+
+import cleanup
 
 import ccc.aws
 import ccc.gcp
@@ -31,22 +32,22 @@ def publish_image(
 
     if release.platform == 'ali':
         publish_function = _publish_alicloud_image
-        cleanup_function = _clean_alicloud_image
+        cleanup_function = cleanup.clean_alicloud_images
     elif release.platform == 'aws':
         publish_function = _publish_aws_image
-        cleanup_function = _cleanup_aws
+        cleanup_function = cleanup.cleanup_aws_images
     elif release.platform == 'gcp':
         publish_function = _publish_gcp_image
-        cleanup_function = _cleanup_gcp_image
+        cleanup_function = cleanup.cleanup_gcp_images
     elif release.platform == 'azure':
         publish_function = _publish_azure_image
         cleanup_function = None
     elif release.platform == 'openstack':
         publish_function = _publish_openstack_image
-        cleanup_function = _cleanup_openstack_image
+        cleanup_function = cleanup.cleanup_openstack_images
     elif release.platform == 'openstackbaremetal':
         publish_function = _publish_openstack_image
-        cleanup_function = _cleanup_openstack_image
+        cleanup_function = cleanup.cleanup_openstack_images
     elif release.platform == 'oci':
         publish_function = _publish_oci_image
         cleanup_function = None
@@ -93,28 +94,6 @@ def _publish_alicloud_image(
     return maker.make_image()
 
 
-def _clean_alicloud_image(
-    release: gm.OnlineReleaseManifest,
-    publishing_cfg: gm.PublishingCfg,
-) -> gm.OnlineReleaseManifest:
-    import ccc.alicloud
-    import glci.alicloud
-    aliyun_cfg = publishing_cfg.target(release.platform)
-    alicloud_cfg_name = aliyun_cfg.aliyun_cfg_name
-
-    oss_auth = ccc.alicloud.oss_auth(alicloud_cfg=alicloud_cfg_name)
-    acs_client = ccc.alicloud.acs_client(alicloud_cfg=alicloud_cfg_name)
-
-    maker = glci.alicloud.AlicloudImageMaker(
-        oss_auth,
-        acs_client,
-        release,
-        aliyun_cfg,
-    )
-
-    return maker.delete_images()
-
-
 def _publish_aws_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
@@ -126,22 +105,6 @@ def _publish_aws_image(
         publishing_cfg=publishing_cfg,
         release=release,
     )
-
-
-def _cleanup_aws(
-    release: gm.OnlineReleaseManifest,
-    publishing_cfg: gm.PublishingCfg,
-):
-    target_image_name = glci.aws.target_image_name_for_release(release=release)
-    aws_publishing_cfg: gm.PublishingTargetAWS = publishing_cfg.target(platform=release.platform)
-
-    for aws_cfg in aws_publishing_cfg.aws_cfgs:
-        aws_cfg_name = aws_cfg.aws_cfg_name
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
-        glci.aws.unregister_images_by_name(
-            mk_session=mk_session,
-            image_name=target_image_name,
-        )
 
 
 def _publish_azure_image(
@@ -227,25 +190,6 @@ def _publish_gcp_image(
     )
 
 
-def _cleanup_gcp_image(
-    release: gm.OnlineReleaseManifest,
-    publishing_cfg: gm.PublishingCfg,
-) -> gm.OnlineReleaseManifest:
-    gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
-    cfg_factory = ci.util.ctx().cfg_factory()
-    gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
-    storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
-    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
-    
-    return glci.gcp.cleanup_image(
-        storage_client=storage_client,
-        compute_client=compute_client,
-        gcp_project_name=gcp_cfg.project(),
-        release=release,
-        publishing_cfg=gcp_publishing_cfg,
-    )
-
-
 def _publish_oci_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
@@ -313,40 +257,4 @@ def _publish_openstack_image(
         image_properties=image_properties,
         release=release,
         suffix=openstack_publishing_cfg.suffix
-    )
-
-
-def _cleanup_openstack_image(
-    release: gm.OnlineReleaseManifest,
-    publishing_cfg: gm.PublishingCfg,
-):
-    import glci.openstack_image
-    import ci.util
-    
-    openstack_publishing_cfg: gm.PublishingTargetOpenstack = publishing_cfg.target(
-        platform=release.platform,
-    )
-    
-    cfg_factory = ci.util.ctx().cfg_factory()
-    openstack_environments_cfg = cfg_factory.ccee(
-        openstack_publishing_cfg.environment_cfg_name,
-    )
-
-    username = openstack_environments_cfg.credentials().username()
-    password = openstack_environments_cfg.credentials().passwd()
-
-    openstack_env_cfgs = tuple((
-        gm.OpenstackEnvironment(
-            project_name=project.name(),
-            domain=project.domain(),
-            region=project.region(),
-            auth_url=project.auth_url(),
-            username=username,
-            password=password,
-        ) for project in openstack_environments_cfg.projects()
-    ))
-
-    glci.openstack_image.delete_images_for_release(
-        openstack_environments_cfgs=openstack_env_cfgs,
-        release=release,
     )

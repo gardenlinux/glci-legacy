@@ -161,27 +161,21 @@ def register_image(
         VirtualizationType='hvm' # | paravirtual
     )
 
-    ec2_client.create_tags(
-        Resources=[
-            result['ImageId'],
-        ],
-        Tags=[
-            {
-                'Key': 'sec-by-def-public-image-exception',
-                'Value': 'enabled',
-            },
-        ]
-    )
-
     # XXX need to wait until image is available (before publishing)
     return result['ImageId']
 
 
 def enumerate_region_names(
     ec2_client: 'botocore.client.EC2',
+    regions_to_include: list[str] = None
 ):
     for region in ec2_client.describe_regions()['Regions']:
-        yield region['RegionName']
+        region_name = region['RegionName']
+        if regions_to_include is not None:
+            if region_name in regions_to_include:
+                yield region_name
+        else:
+            yield region_name
 
 
 def wait_for_image_state(
@@ -264,6 +258,7 @@ def copy_image(
             SourceImageId=ami_image_id,
             SourceRegion=src_region_name,
             Name=image_name,
+            CopyImageTags=True
         )
         # XXX: return (new) image-AMI
         response_ok(res)
@@ -293,7 +288,8 @@ def image_ids_by_name(
 def unregister_images_by_name(
     mk_session: callable,
     image_name: str,
-    region_names: typing.Sequence[str]=None,
+    dry_run: bool,
+    region_names: typing.Sequence[str]=None
 ):
     if not region_names:
         ec2_client = mk_session().client('ec2')
@@ -311,9 +307,77 @@ def unregister_images_by_name(
     ):
         def unregister_image():
             ec2 = mk_session(region_name=region_name).client('ec2')
-            ec2.deregister_image(ImageId=image_id)
-            logger.info(f'unregistered {image_id=}')
+            if dry_run:
+                logger.warning(f'DRY RUN: would unregister {image_id=} in {region_name}')
+            else:
+                ec2.deregister_image(ImageId=image_id)
+                logger.info(f'unregistered {image_id=} in {region_name}')
         results.append(executor.submit(unregister_image))
+
+    concurrent.futures.wait(results)
+
+
+def _get_snapshots_for_image(
+        client: 'botocore.client.EC2',
+        image_id: str,
+):
+    snapshots = []
+    response = client.describe_images(
+        Owners=["self"], Filters=[{"Name": "image-id", "Values": [image_id]}]
+    )
+
+    if (response["Images"]):
+        image = response["Images"][0]
+
+        for bdm in image.get("BlockDeviceMappings"):
+            snapshots.append(bdm["Ebs"]["SnapshotId"])
+    else:
+        logger.warning(f"no snapshots found for {image_id=}")
+    return snapshots
+
+
+def _delete_snapshots(
+        client: 'botocore.client.EC2',
+        snapshot_ids: list[str],
+        dry_run: bool
+):
+    for snapshot in snapshot_ids:
+        if dry_run:
+            logger.warning(f"DRY RUN: would delete {snapshot=}")
+        else:
+            client.delete_snapshot(SnapshotId=snapshot)
+            logger.info(f"deleted {snapshot=}")
+
+
+def unregister_images_by_id(
+    mk_session: callable,
+    images: glci.model.AwsPublishedImageSet,
+    dry_run: bool
+):
+    executor = concurrent.futures.ThreadPoolExecutor()
+    results = []
+
+    for image in images:
+        def unregister_image(
+            image,
+        ):
+            ec2 = mk_session(region_name=image.aws_region_id).client('ec2')
+            response = response_ok(ec2.describe_images(
+                Owners=["self"], Filters=[{"Name": "image-id", "Values": [image.ami_id]}]
+            ))
+
+            if len(response["Images"]) == 0:
+                logger.warning(f"AMI with id {image.ami_id} is no longer present in {image.aws_region_id}")
+            else:
+                snapshots = _get_snapshots_for_image(ec2, image.ami_id)
+                if dry_run:
+                    logger.warning(f'DRY RUN: would unregister {image.ami_id=} in {image.aws_region_id}')
+                else:
+                    ec2.deregister_image(ImageId=image.ami_id)
+                    logger.info(f'unregistered {image.ami_id=} in {image.aws_region_id}')
+                _delete_snapshots(ec2, snapshots, dry_run=dry_run)
+
+        results.append(executor.submit(unregister_image(image)))
 
     concurrent.futures.wait(results)
 
@@ -353,6 +417,36 @@ def target_image_name_for_release(release: glci.model.OnlineReleaseManifest):
     return target_image_name
 
 
+def calculate_aws_tags(
+    image_tag_cfg: glci.model.ImageTagConfiguration,
+    release: glci.model.OnlineReleaseManifest,
+) -> list[dict[str, str]]:
+    tags = []
+    if not image_tag_cfg:
+        return tags
+    if image_tag_cfg.include_gardenlinux_version:
+        tags.append({"Key": "gardenlinux-version", "Value": release.version})
+    if image_tag_cfg.include_gardenlinux_committish:
+        tags.append({"Key": "gardenlinux-committish", "Value": release.build_committish})
+    for s in image_tag_cfg.static_tags:
+        tags.append({"Key": s, "Value": image_tag_cfg.static_tags[s]})
+    return tags
+
+
+def attach_tags(
+        ec2_client: 'botocore.client.EC2',
+        resources: list[str],
+        tags: list[dict[str, str]]
+):
+    if len(tags) == 0:
+        return
+    
+    _ = response_ok(ec2_client.create_tags(
+        Resources=resources,
+        Tags=tags
+    ))
+
+
 def upload_and_register_gardenlinux_image(
     aws_publishing_cfg: glci.model.PublishingTargetAWS,
     publishing_cfg: glci.model.PublishingCfg,
@@ -362,6 +456,7 @@ def upload_and_register_gardenlinux_image(
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg: glci.model.PublishingTargetAWSAccount
         aws_cfg_name = aws_cfg.aws_cfg_name
+        tags = calculate_aws_tags(aws_publishing_cfg.image_tags, release)
 
         logger.info(
             f'Running AWS-Publication for aws-config {aws_cfg_name}.'
@@ -410,6 +505,7 @@ def upload_and_register_gardenlinux_image(
             ec2_client=ec2_client,
             snapshot_task_id=snapshot_task_id,
         )
+        attach_tags(ec2_client=ec2_client, resources=[snapshot_id], tags=tags)
         logger.info(f'import task finished {snapshot_id=}')
 
         initial_ami_id = register_image(
@@ -418,9 +514,10 @@ def upload_and_register_gardenlinux_image(
             image_name=target_image_name,
             architecture=_to_aws_architecture(release.architecture),
         )
+        attach_tags(ec2_client=ec2_client, resources=[initial_ami_id], tags=tags)
         logger.info(f'registered {initial_ami_id=}')
 
-        region_names = tuple(enumerate_region_names(ec2_client=ec2_client))
+        region_names = tuple(enumerate_region_names(ec2_client=ec2_client, regions_to_include=aws_cfg.copy_regions))
 
         try:
             image_map = dict(
@@ -437,6 +534,7 @@ def upload_and_register_gardenlinux_image(
             unregister_images_by_name(
                 mk_session=mk_session,
                 image_name=target_image_name,
+                dry_run=False,
                 region_names=region_names,
             )
             raise

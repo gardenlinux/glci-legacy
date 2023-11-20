@@ -9,6 +9,8 @@ import glci.util
 import ccc.aws
 import gci.componentmodel as cm
 
+import cnudie.retrieve
+
 logger = logging.getLogger(__name__)
 
 

@@ -475,7 +475,7 @@ def canonical_features(platform: Platform, modifiers, architecture, version) -> 
 def canonical_name(
     platform: Platform,
     modifiers,
-    version: str,
+    version: str|None=None,
     architecture: Architecture|None=None,
 ) -> str:
     '''Calculates the canonical name of a gardenlinux flavour.
@@ -690,15 +690,28 @@ class CicdCfg:
     package_build: typing.Optional[PackageBuildCfg]
 
 
-class BucketRole(enum.Enum):
+class BuildResultBucketRole(enum.Enum):
     SOURCE = 'source'
     REPLICA = 'replica'
+
+
+class ManifestBucketRole(enum.Enum):
+    SOURCE = 'source'
+    TARGET = 'target'
+
+
+@dataclasses.dataclass
+class ManifestS3Bucket:
+    name: str
+    role: ManifestBucketRole
+    bucket_name: str
+    aws_cfg_name: str
 
 
 @dataclasses.dataclass
 class BuildresultS3Bucket:
     name: str
-    role: BucketRole
+    role: BuildResultBucketRole
     bucket_name: str
     aws_cfg_name: str
     platforms: list[Platform] = None
@@ -715,6 +728,7 @@ class PublishingTargetAliyun:
     aliyun_cfg_name: str
     oss_bucket_name: str
     aliyun_region: str
+    copy_regions: typing.Optional[list[str]]
     platform: Platform = 'ali' # should not overwrite
 
 
@@ -722,11 +736,13 @@ class PublishingTargetAliyun:
 class PublishingTargetAWSAccount:
     aws_cfg_name: str
     buildresult_bucket: str
+    copy_regions: typing.Optional[list[str]]
 
 
 @dataclasses.dataclass
 class PublishingTargetAWS:
     aws_cfgs: list[PublishingTargetAWSAccount]
+    image_tags: typing.Optional[ImageTagConfiguration]
     platform: Platform = 'aws' # should not overwrite
 
 
@@ -766,13 +782,31 @@ class OpenStackImageProperties:
     openstack_properties: dict[str, str]
 
 @dataclasses.dataclass
+class ImageTagConfiguration:
+    include_gardenlinux_version: typing.Optional[bool]
+    include_gardenlinux_committish: typing.Optional[bool]
+    static_tags: typing.Optional[dict[str, str]]
+
+
+@dataclasses.dataclass
 class OcmCfg:
     component_repository_cfg_name: str
+    overwrite_compnent_descriptor: typing.Optional[bool]
 
+@dataclasses.dataclass
+class S3_ManifestVersion:
+    epoch: str
+    version: str
+    committish: str
+
+@dataclasses.dataclass
+class S3_Manifest(S3_ManifestVersion):
+    manifest_key: str
 
 @dataclasses.dataclass
 class PublishingCfg:
     name: str
+    manifest_s3_buckets: list[ManifestS3Bucket]
     buildresult_s3_buckets: list[BuildresultS3Bucket]
     ocm: OcmCfg
     targets: list[
@@ -805,14 +839,27 @@ class PublishingCfg:
     @property
     def origin_buildresult_bucket(self) -> BuildresultS3Bucket:
         for bucket in self.buildresult_s3_buckets:
-            if bucket.role is BucketRole.SOURCE:
+            if bucket.role is BuildResultBucketRole.SOURCE:
                 return bucket
         raise RuntimeError('did not find buildresult-bucket w/ role `source`')
 
     @property
     def replica_buildresult_buckets(self) -> typing.Generator[BuildresultS3Bucket, None, None]:
         for bucket in self.buildresult_s3_buckets:
-            if bucket.role is BucketRole.REPLICA:
+            if bucket.role is BuildResultBucketRole.REPLICA:
+                yield bucket
+
+    @property
+    def source_manifest_bucket(self) -> ManifestS3Bucket:
+        for bucket in self.manifest_s3_buckets:
+            if bucket.role is ManifestBucketRole.SOURCE:
+                return bucket
+        raise RuntimeError('did not find manifest-bucket w/ role `source`')
+
+    @property
+    def target_manifest_buckets(self) -> typing.Tuple[BuildresultS3Bucket, None, None]:
+        for bucket in self.manifest_s3_buckets:
+            if bucket.role is ManifestBucketRole.TARGET:
                 yield bucket
 
 
@@ -1021,20 +1068,28 @@ def feature_by_name(feature_name: str):
 def _garden_feat(
     platform: str,
     modifiers: typing.Tuple[str, ...],
-    arch: str,
-    version: str,
+    arch: str|None,
+    version: str|None,
     cmd: str = 'cname',
 ) -> str:
+    if not version or not arch:
+        cmd = "cname_base"
+
     all_mods = set(tuple(modifiers) + (platform,))
     feature_binary = os.path.abspath(os.path.join(paths.gardenlinux_builder_dir, 'builder', 'parse_features'))
     feature_args=[
             feature_binary,
             '--feature-dir', os.path.abspath(os.path.join(paths.gardenlinux_dir, 'features')),
             '--features', ','.join(all_mods),
-            "--arch", arch,
-            "--version", version,
-            cmd,
-        ]
+    ]
+
+    if arch:
+        feature_args.extend(["--arch", arch])
+    
+    if version:
+        feature_args.extend(["--version", version])
+
+    feature_args.append(cmd)
 
     parse_features_proc = None
     try:

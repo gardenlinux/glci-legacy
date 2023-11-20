@@ -13,12 +13,12 @@ import sys
 import yaml
 
 import component_descriptor as cd
-import publish
-import replicate
 
 import ccc.aws
 import cnudie.upload
+import cnudie.retrieve
 import ctx
+import version as cc_version
 
 logger = logging.getLogger('gardenlinux-cli')
 
@@ -27,7 +27,6 @@ ci_dir = os.path.join(own_dir, 'ci')
 
 sys.path.insert(1, ci_dir)
 
-import clean      # noqa: E402
 import glci.util  # noqa: E402
 import glci.model # noqa: E402
 import paths      # noqa: E402
@@ -63,6 +62,8 @@ class EnumAction(argparse.Action):
 
 
 def clean_build_result_repository():
+    import cleanup
+    
     parser = argparse.ArgumentParser(
         description='Cleanup in manifests repository (S3)',
         epilog='Warning: dangerous, use only if you know what you are doing!',
@@ -89,21 +90,21 @@ def clean_build_result_repository():
     cicd_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
 
     print('purging outdated build snapshot manifests')
-    clean.clean_single_release_manifests(
+    cleanup.clean_single_release_manifests(
         max_age_days=parsed.snapshot_max_age_days,
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
 
     print('purging outdated build result snapshot sets (release-candidates)')
-    clean.clean_release_manifest_sets(
+    cleanup.clean_release_manifest_sets(
         max_age_days=parsed.snapshot_max_age_days,
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
 
     print('purging loose objects')
-    clean.clean_orphaned_objects(
+    cleanup.clean_orphaned_objects(
         cicd_cfg=cicd_cfg,
         dry_run=parsed.dry_run,
     )
@@ -431,8 +432,11 @@ def _flavourset(parsed):
     return flavour_set
 
 
-def _add_publishing_cfg_args(parser):
-    parser.add_argument('--cfg-name', default='default')
+def _add_publishing_cfg_args(
+        parser,
+        default: str = 'default'
+):
+    parser.add_argument('--cfg-name', default=default)
 
 
 def _publishing_cfg(parsed):
@@ -442,6 +446,8 @@ def _publishing_cfg(parsed):
 
 
 def replicate_blobs():
+    import replicate    # late import because unneeded for the other functions
+
     parser = argparse.ArgumentParser()
     _add_flavourset_args(parser)
     _add_publishing_cfg_args(parser)
@@ -491,7 +497,13 @@ def ls_manifests():
     parser = argparse.ArgumentParser()
 
     _add_flavourset_args(parser)
+    _add_publishing_cfg_args(parser)
 
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="if given, filters for a specific version",
+    )
     parser.add_argument(
         '--version-prefix',
         default=None,
@@ -500,13 +512,20 @@ def ls_manifests():
     parser.add_argument(
         '--print',
         default='all',
-        choices=('all', 'versions', 'versions-and-commits'),
+        choices=('all', 'versions', 'versions-and-commits', 'greatest'),
+    )
+    parser.add_argument(
+        '--yaml',
+        nargs=1,
+        help="write output to specified yaml file"
     )
 
     parsed = parser.parse_args()
 
     flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
+
+    version = parsed.version
 
     def iter_manifest_prefixes():
         key_prefix = glci.model.ReleaseIdentifier.manifest_key_prefix
@@ -517,6 +536,7 @@ def ls_manifests():
                 platform=f.platform,
                 modifiers=f.modifiers,
                 architecture=f.architecture,
+                version=version,
             )
             prefix = f'{key_prefix}/{cname}'
 
@@ -525,12 +545,10 @@ def ls_manifests():
 
             yield prefix
 
-    cfg = glci.util.publishing_cfg()
+    cfg = _publishing_cfg(parsed)
     s3_client = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
 
-    versions = set()
-    versions_and_commits = set()
-
+    manifests = list()
     for prefix in iter_manifest_prefixes():
         matching_manifests = s3_client.list_objects_v2(
             Bucket=cfg.origin_buildresult_bucket.bucket_name,
@@ -538,21 +556,44 @@ def ls_manifests():
         )
         for entry in matching_manifests['Contents']:
             key = entry['Key']
+            _, version, commit = key.rsplit('-', 2)
+            epoch, _ = version.split('.')
+            s = glci.model.S3_Manifest(
+                manifest_key=key,
+                epoch=epoch,
+                version=version,
+                committish=commit
+            )
+            manifests.append(s)
+
+    manifests.sort(key=lambda v: cc_version.greatest_version([cc_version.parse_to_semver(v.version)]))
+
+    if parsed.print == 'greatest':
+        m = manifests.pop()
+        if parsed.yaml:
+            v = glci.model.S3_ManifestVersion(
+                epoch=m.epoch,
+                version=m.version,
+                committish=m.committish
+            )
+            with open(parsed.yaml[0], "w") as f:
+                f.write(yaml.safe_dump(dataclasses.asdict(v)))
+        else:
+            print(f"{m.version} {m.committish}")
+    else:
+        for m in manifests:
             if parsed.print == 'all':
-                print(key)
-            else:
-                _, version, commit = key.rsplit('-', 2)
-                if not version in versions:
-                    versions.add(version)
-                    if parsed.print == 'versions':
-                        print(version)
-                if not (version, commit) in versions_and_commits:
-                    versions_and_commits.add((version, commit))
-                    if parsed.print == 'versions-and-commits':
-                        print(f'{version} {commit}')
+                print(f"{m.manifest_key}")
+            elif parsed.print == 'versions':
+                print(f"{m.version}")
+            elif parsed.print == 'versions-and-commits':
+                print(f"{m.version} {m.committish}")
 
 
 def publish_release_set():
+    import publish      # late import because unneeded for the other funtions
+    import replicate    # late import because unneeded for the other funtions
+
     parser = argparse.ArgumentParser(
         description='run all sub-steps for publishing gardenlinux to all target hyperscalers',
     )
@@ -619,27 +660,41 @@ def publish_release_set():
         default=False,
         help='if --phase is given, skip previous phases (for debugging purposes)',
     )
+    parser.add_argument(
+        "--version-file",
+        nargs=1,
+        help="read version and committish from given YAML file"
+    )
 
     parsed = parser.parse_args()
 
-    if not bool(parsed.version) ^ bool(parsed.version_name):
-        logger.fatal('exactly one of --version, --version-name must be passed')
-        exit(1)
+    version = None
+    commit = None
 
-    if not bool(parsed.commit) ^ bool(parsed.version_name):
-        logger.fatal('exactly one of --commit, --version-name must be passed')
-        exit(1)
+    if not bool(parsed.version_file):
+        if not bool(parsed.version) ^ bool(parsed.version_name):
+            logger.fatal('exactly one of --version, --version-name must be passed')
+            exit(1)
 
-    if parsed.version:
-        version = parsed.version
-        commit = parsed.commit
+        if not bool(parsed.commit) ^ bool(parsed.version_name):
+            logger.fatal('exactly one of --commit, --version-name must be passed')
+            exit(1)
 
-    if parsed.version_name:
-        publish_version = glci.util.publishing_version(
-            version_name=parsed.version_name,
-        )
-        version = publish_version.version
-        commit = publish_version.commit
+        if parsed.version:
+            version = parsed.version
+            commit = parsed.commit
+
+        if parsed.version_name:
+            publish_version = glci.util.publishing_version(
+                version_name=parsed.version_name,
+            )
+            version = publish_version.version
+            commit = publish_version.commit
+    else:
+        with open(parsed.version_file[0]) as f:
+            input = yaml.safe_load(f)
+            version = input['version']
+            commit = input['committish']
 
     cfg = _publishing_cfg(parsed)
     cfg_factory = ctx.cfg_factory()
@@ -698,15 +753,19 @@ def publish_release_set():
 
     phase_logger = start_phase('sync-images')
 
-    s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
+    source_manifest_bucket = cfg.source_manifest_bucket
+    target_manifest_buckets = tuple(cfg.target_manifest_buckets)
+    if not target_manifest_buckets:
+        target_manifest_buckets = (source_manifest_bucket,)
+
+    s3_session = ccc.aws.session(source_manifest_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-    origin_buildresult_bucket = cfg.origin_buildresult_bucket
 
     release_manifests = list(
         glci.util.find_releases(
             s3_client=s3_client,
-            bucket_name=origin_buildresult_bucket.bucket_name,
+            bucket_name=source_manifest_bucket.bucket_name,
             flavour_set=flavour_set,
             build_committish=commit,
             version=version,
@@ -798,15 +857,18 @@ def publish_release_set():
         )
         release_manifests[idx] = updated_manifest
 
-        target = f'{origin_buildresult_bucket.bucket_name}/{manifest.s3_key}'
-        phase_logger.info(f'updating release-manifest at {target}')
+        phase_logger.info(f"{idx=}, {target_manifest_buckets=}")
 
-        glci.util.upload_release_manifest(
-            s3_client=s3_client,
-            bucket_name=origin_buildresult_bucket.bucket_name,
-            key=manifest.s3_key,
-            manifest=updated_manifest,
-        )
+        for target_manifest_bucket in target_manifest_buckets:
+            target = f'{target_manifest_bucket.bucket_name}/{manifest.s3_key}'
+            phase_logger.info(f'updating release-manifest at {target}')
+
+            glci.util.upload_release_manifest(
+                s3_client=s3_client,
+                bucket_name=target_manifest_bucket.bucket_name,
+                key=manifest.s3_key,
+                manifest=updated_manifest,
+            )
 
         phase_logger.info(f'image publishing for {manifest.platform} succeeded')
 
@@ -834,12 +896,178 @@ def publish_release_set():
     if parsed.print_component_descriptor:
         pprint.pprint(component_descriptor)
 
+    repository_context = component_descriptor.component.current_repository_ctx().baseUrl
+    component_name = component_descriptor.component.name
+    component_version = component_descriptor.component.version
+
     phase_logger.info('publishing component-descriptor')
+    phase_logger.info(f'{repository_context=} {component_name=} {component_version=}')
+
+    if cfg.ocm.overwrite_compnent_descriptor:
+        on_exist=cnudie.upload.UploadMode.OVERWRITE
+    else:
+        on_exist=cnudie.upload.UploadMode.SKIP
+
     cnudie.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
+        on_exist=on_exist
     )
 
     end_phase(phase_component_descriptor)
+
+
+def cleanup_release_set():
+    import cleanup # late import because it is unneeded for the other functions in this swiss-army-knife of a tool
+    pp = pprint.PrettyPrinter(indent=4)
+
+    parser = argparse.ArgumentParser(
+        description='clean a release set from all target hyperscalers',
+    )
+    _add_publishing_cfg_args(parser, default="gardener-integration-test")
+    _add_flavourset_args(parser)
+
+    parser.add_argument(
+        '--version',
+    )
+    parser.add_argument(
+        '--ocm-repo',
+        help='the component-repo to retrieve gardenlinux-component-descriptor from',
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        '--platform',
+        action='append',
+        dest='platforms',
+        default=[],
+        help='if set, only specified platforms will be published to (default: publish to all)',
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=False,
+        help='dry-run, only pretend to delete artefacts but do not actually do it',
+    )
+    parser.add_argument(
+        '--print-manifest',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--print-component-descriptor',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        "--version-file",
+        nargs=1,
+        help="read version from given YAML file"
+    )
+
+    parsed = parser.parse_args()
+
+    if bool(parsed.version_file):
+        with open(parsed.version_file[0]) as f:
+            input = yaml.safe_load(f)
+            version = input['version']
+    elif bool(parsed.version):
+        version = parsed.version
+    else:
+        raise RuntimeError(f"need to provide either --version or --version-file parameter")
+
+    cfg = _publishing_cfg(parsed)
+    cfg_factory = ctx.cfg_factory()
+
+    if not parsed.ocm_repo:
+        ocm_cfg = cfg_factory.ctx_repository(cfg.ocm.component_repository_cfg_name)
+        ocm_repo_base_url = ocm_cfg.base_url()
+    else:
+        ocm_repo_base_url = parsed.ocm_repo
+
+    component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
+        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url)
+    )
+
+    gardenlinux_component = component_descriptor_lookup(('github.com/gardenlinux/gardenlinux', version)).component
+
+    if parsed.print_component_descriptor:
+        pp.pprint(gardenlinux_component)
+
+    commit = None
+
+    for s in gardenlinux_component.sources:
+        if s.name != "gardenlinux":
+            continue
+        commit = s.access.commit
+        break
+
+    target_manifest_buckets = tuple(cfg.target_manifest_buckets)
+    if len(target_manifest_buckets) == 0:
+        raise RuntimeError(f"no target manifest buckets specified")
+    elif len(target_manifest_buckets) > 1:
+        raise RuntimeError(f"more than one target manifest buckets specified - this is currently not supported")
+
+    s3_session = ccc.aws.session(target_manifest_buckets[0].aws_cfg_name)
+    s3_client = s3_session.client('s3')
+
+    flavour_set = _flavourset(parsed)
+    release_manifests = list(
+        glci.util.find_releases(
+            s3_client=s3_client,
+            bucket_name=target_manifest_buckets[0].bucket_name,
+            flavour_set=flavour_set,
+            build_committish=commit,
+            version=version,
+            gardenlinux_epoch=int(version.split('.')[0]),
+        )
+    )
+
+    logger.info(f"found {len(release_manifests)} release manifests in bucket {target_manifest_buckets[0].bucket_name}")
+
+    # todo: sanity check that it matches the published metadata in the component descriptor
+
+    for idx, manifest in enumerate(release_manifests):
+        if parsed.platforms and not manifest.platform in parsed.platforms:
+            logger.info(f'skipping {manifest.platform} (filter was set via ARGV)')
+            continue
+
+        if not manifest.published_image_metadata:
+            logger.info(f"manifest for platform {manifest.platform}/{manifest.architecture.value} does not contain publishing metadata, skipping")
+            continue
+
+        target_cfg = cfg.target(platform=manifest.platform, absent_ok=False)
+        if not target_cfg:
+            continue
+
+        logger.info(f'will cleanup images from {manifest.platform}/{manifest.architecture.value}')
+
+        updated_manifest = cleanup.cleanup_image(
+            release=manifest,
+            publishing_cfg=cfg,
+            dry_run=parsed.dry_run
+        )
+
+        if parsed.print_manifest:
+            pprint.pprint(updated_manifest)
+
+        release_manifests[idx] = updated_manifest
+
+        for target_manifest_bucket in target_manifest_buckets:
+            target = f'{target_manifest_bucket.bucket_name}/{manifest.s3_key}'
+            if parsed.dry_run:
+                logger.warning(f'DRY RUN: would update release-manifest at {target}')
+                continue
+            else:
+                logger.info(f'updating release-manifest at {target}')
+
+                glci.util.upload_release_manifest(
+                    s3_client=s3_client,
+                    bucket_name=target_manifest_bucket.bucket_name,
+                    key=manifest.s3_key,
+                    manifest=updated_manifest,
+                )
+
+        logger.info(f'cleaning up images for {manifest.platform}/{manifest.architecture.value} succeeded')
 
 
 def main():
