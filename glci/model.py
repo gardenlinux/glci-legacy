@@ -769,6 +769,7 @@ class PublishingTargetOpenstack:
     environment_cfg_name: str
     image_properties: typing.Optional[dict[str, str]]
     suffix: typing.Optional[str]
+    copy_regions: typing.Optional[list[str]]
     platform: Platform = 'openstack' # should not overwrite
 
 @dataclasses.dataclass
@@ -791,7 +792,7 @@ class ImageTagConfiguration:
 @dataclasses.dataclass
 class OcmCfg:
     component_repository_cfg_name: str
-    overwrite_compnent_descriptor: typing.Optional[bool]
+    overwrite_component_descriptor: typing.Optional[bool]
 
 @dataclasses.dataclass
 class S3_ManifestVersion:
