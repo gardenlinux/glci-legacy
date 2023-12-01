@@ -41,6 +41,8 @@ from azure.mgmt.compute.models import (
     TargetRegion,
 )
 
+from azure.mgmt.compute.models import Architecture as AzureArchitecture
+
 from azure.core.exceptions import (
     ResourceExistsError,
     ResourceNotFoundError,
@@ -501,15 +503,22 @@ def check_offer_transport_state(
     logger.info(f"Gardenlinux Azure Marketplace release op {transport_state} is still ongoing...")
     return release
 
-def _get_target_blob_name(version: str, generation: glci.model.AzureHyperVGeneration = None):
+def _get_target_blob_name(version: str, generation: glci.model.AzureHyperVGeneration = None, architecture: glci.model.Architecture = glci.model.Architecture.AMD64):
+    arch = architecture.value.lower()
     if generation and generation == glci.model.AzureHyperVGeneration.V2:
-        return f"gardenlinux-az-{version}-gen2.vhd"
-    return f"gardenlinux-az-{version}.vhd"
+        return f"gardenlinux-az-{version}-{arch}-gen2.vhd"
+    return f"gardenlinux-az-{version}-{arch}.vhd"
 
 
-def _append_hyper_v_generation(s: str, generation: glci.model.AzureHyperVGeneration = None):
-    if generation and generation == glci.model.AzureHyperVGeneration.V2:
-        return f"{s}-gen2"
+def _append_hyper_v_generation_and_architecture(
+        s: str,
+        generation: glci.model.AzureHyperVGeneration,
+        architecture: glci.model.Architecture
+    ):
+    if architecture == glci.model.Architecture.ARM64:
+        s=f"{s}-arm64"
+    if generation == glci.model.AzureHyperVGeneration.V2:
+        s=f"{s}-gen2"
     return s
 
 def _create_shared_image(
@@ -524,36 +533,49 @@ def _create_shared_image(
     image_version: str,
     hyper_v_generation: glci.model.AzureHyperVGeneration,
     source_id: str,
-    gallery_regions: list[str]
+    gallery_regions: list[str],
+    architecture: glci.model.Architecture
 ) -> CommunityGalleryImageVersion:
-    image_definition_name=_append_hyper_v_generation(image_name, hyper_v_generation)
+    image_definition_name=_append_hyper_v_generation_and_architecture(image_name, hyper_v_generation, architecture)
 
+    # begin_create_or_update() can change gallery image definitions - which is potentially dangerous for existing images
+    # checking if a given gallery image definition already exists to make sure only new definitions get created
+    # and existing definitions will not be touched
     logger.info(f'Creating gallery image definition {image_definition_name=}...')
-    result = cclient.gallery_images.begin_create_or_update(
-        resource_group_name=resource_group_name,
-        gallery_name=gallery_name,
-        gallery_image_name=image_definition_name,
-        gallery_image=GalleryImage(
-            location=location,
-            description=shared_gallery_cfg.description,
-            eula=shared_gallery_cfg.eula,
-            release_note_uri=shared_gallery_cfg.release_note_uri,
-            features=[
-                GalleryImageFeature(name="IsAcceleratedNetworkSupported", value="True"),
-                GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
-            ],
-            os_type=OperatingSystemTypes.LINUX,
-            os_state=OperatingSystemStateTypes.GENERALIZED,
-            hyper_v_generation=HyperVGeneration(hyper_v_generation.value),
-            identifier=GalleryImageIdentifier(
-                publisher=shared_gallery_cfg.identifier_publisher,
-                offer=shared_gallery_cfg.identifier_offer,
-                sku=_append_hyper_v_generation(shared_gallery_cfg.identifier_sku, hyper_v_generation),
+    try:
+        result = cclient.gallery_images.get(
+            resource_group_name=resource_group_name,
+            gallery_name=gallery_name,
+            gallery_image_name=image_definition_name
+        )
+        logger.info(f'Gallery image definition {result.name} for generation {result.hyper_v_generation} on {result.architecture} already exists.')
+    except ResourceNotFoundError:
+        result = cclient.gallery_images.begin_create_or_update(
+            resource_group_name=resource_group_name,
+            gallery_name=gallery_name,
+            gallery_image_name=image_definition_name,
+            gallery_image=GalleryImage(
+                location=location,
+                description=shared_gallery_cfg.description,
+                eula=shared_gallery_cfg.eula,
+                release_note_uri=shared_gallery_cfg.release_note_uri,
+                features=[
+                    GalleryImageFeature(name="IsAcceleratedNetworkSupported", value="True"),
+                    GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
+                ],
+                os_type=OperatingSystemTypes.LINUX,
+                os_state=OperatingSystemStateTypes.GENERALIZED,
+                hyper_v_generation=HyperVGeneration(hyper_v_generation.value),
+                architecture=AzureArchitecture.ARM64 if architecture == glci.model.Architecture.ARM64 else AzureArchitecture.X64,
+                identifier=GalleryImageIdentifier(
+                    publisher=shared_gallery_cfg.identifier_publisher,
+                    offer=shared_gallery_cfg.identifier_offer,
+                    sku=_append_hyper_v_generation_and_architecture(shared_gallery_cfg.identifier_sku, hyper_v_generation, architecture),
+                )
             )
         )
-    )
-    logger.info('...waiting for asynchronous operation to complete')
-    result = result.result()
+        logger.info('...waiting for asynchronous operation to complete')
+        result = result.result()
 
     regions = {
         l.name
@@ -644,7 +666,7 @@ def publish_to_azure_community_gallery(
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
     azure_cloud: glci.model.AzureCloud
 ) -> glci.model.AzureImageGalleryPublishedImage:
-    published_name = _get_target_blob_name(release.version, hyper_v_generation)
+    published_name = _get_target_blob_name(release.version, hyper_v_generation, release.architecture)
 
     logger.info(f'Create community gallery image {published_name=} for Hyper-V generation {hyper_v_generation}')
 
@@ -697,6 +719,7 @@ def publish_to_azure_community_gallery(
         image_name=shared_gallery_cfg.published_name,
         image_version=published_version,
         hyper_v_generation=hyper_v_generation,
+        architecture=release.architecture,
         source_id=result.id,
         gallery_regions=shared_gallery_cfg.regions
     )
@@ -795,7 +818,7 @@ def publish_azure_image(
     except ResourceExistsError:
         logger.info(f'Info: blob container {storage_account_cfg.container_name} already exists.')
 
-    target_blob_name = _get_target_blob_name(release.version)
+    target_blob_name = _get_target_blob_name(release.version, architecture=release.architecture)
 
     logger.info(f'Copying from S3 (at {s3_client.meta.endpoint_url}) to Azure Storage Account blob: {target_blob_name=}')
     image_url, sas_token = copy_image_from_s3_to_az_storage_account(
@@ -830,6 +853,10 @@ def publish_azure_image(
     )
 
     for hyper_v_generation in hyper_v_generations:
+        # arm64 requires Hyper-V gen2 therefore not publishing arm64 for gen1
+        if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.architecture == glci.model.Architecture.ARM64:
+            continue
+
         if publish_to_marketplace:
             logger.info(f'Publishing Azure Marketplace image for {hyper_v_generation}...')
             marketplace_published_image = publish_to_azure_marketplace(
