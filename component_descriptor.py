@@ -53,8 +53,7 @@ def component_descriptor(
     release_manifests: list[glci.model.OnlineReleaseManifest],
     cfg_factory,
 ) -> cm.ComponentDescriptor:
-    ocm_cfg = cfg_factory.ctx_repository(publishing_cfg.ocm.component_repository_cfg_name)
-    ocm_repo_base_url = ocm_cfg.base_url()
+    ocm_repository = cfg_factory.ctx_repository(publishing_cfg.ocm.ocm_repository)
 
     s3_session = ccc.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
@@ -66,7 +65,7 @@ def component_descriptor(
             version=version,
             repositoryContexts=[
                 cm.OciRepositoryContext(
-                    baseUrl=ocm_repo_base_url,
+                    baseUrl=ocm_repository,
                     type=cm.AccessType.OCI_REGISTRY,
                 )
             ],

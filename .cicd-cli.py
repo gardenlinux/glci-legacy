@@ -975,8 +975,7 @@ def cleanup_release_set():
     cfg_factory = ctx.cfg_factory()
 
     if not parsed.ocm_repo:
-        ocm_cfg = cfg_factory.ctx_repository(cfg.ocm.component_repository_cfg_name)
-        ocm_repo_base_url = ocm_cfg.base_url()
+        ocm_repo_base_url = cfg_factory.ctx_repository(cfg.ocm.ocm_repository)
     else:
         ocm_repo_base_url = parsed.ocm_repo
 
