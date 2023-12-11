@@ -791,7 +791,7 @@ class ImageTagConfiguration:
 
 @dataclasses.dataclass
 class OcmCfg:
-    component_repository_cfg_name: str
+    ocm_repository: str
     overwrite_component_descriptor: typing.Optional[bool]
 
 @dataclasses.dataclass

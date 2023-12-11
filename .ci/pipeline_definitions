@@ -21,7 +21,7 @@ glci:
           - '../ls-manifests'
           - '--print'
           - 'versions-and-commits'
-          image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.1.0
     manual-release:
       repo:
         trigger: false
@@ -40,7 +40,7 @@ glci:
           - '../run_publish_release_set.sh'
           - '--version-name'
           - 'default'
-          image: 'eu.gcr.io/gardener-project/glci/job-image:0.1.0'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.1.0
     update-job-image:
       repo:
         trigger: false
@@ -48,7 +48,7 @@ glci:
         publish:
           dockerimages:
             job-image:
-              image: 'eu.gcr.io/gardener-project/glci/job-image'
+              image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image
               dockerfile: 'Dockerfile'
               tag_as_latest: true
         version:
@@ -58,3 +58,4 @@ glci:
           release_on_github: false
         component_descriptor:
           component_name: 'github.com/gardenlinux/glci/utils'
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases

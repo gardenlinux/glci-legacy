@@ -15,7 +15,7 @@
       aws_cfg_name: 'gardenlinux-cn'
       platforms: ['aws']
   ocm:
-    component_repository_cfg_name: 'gardener-dev'
+    ocm_repository: europe-docker.pkg.dev/gardener-project/releases
   targets:
     - platform: 'ali'
       oss_bucket_name: 'gardenlinux-community'
@@ -76,7 +76,7 @@
       bucket_name: 'gardenlinux-github-releases'
       aws_cfg_name: 'gardenlinux-integration-test'
   ocm:
-    component_repository_cfg_name: 'gardenlinux-test'
+    ocm_repository: europe-docker.pkg.dev/sap-se-gcp-gardenlinux/tests
     overwrite_component_descriptor: true
   targets:
     - platform: 'aws'
