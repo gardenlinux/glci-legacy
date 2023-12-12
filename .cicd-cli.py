@@ -972,10 +972,9 @@ def cleanup_release_set():
         raise RuntimeError(f"need to provide either --version or --version-file parameter")
 
     cfg = _publishing_cfg(parsed)
-    cfg_factory = ctx.cfg_factory()
 
     if not parsed.ocm_repo:
-        ocm_repo_base_url = cfg_factory.ctx_repository(cfg.ocm.ocm_repository)
+        ocm_repo_base_url = cfg.ocm.ocm_repository
     else:
         ocm_repo_base_url = parsed.ocm_repo
 
