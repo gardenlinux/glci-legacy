@@ -554,6 +554,8 @@ def ls_manifests():
             Bucket=cfg.origin_buildresult_bucket.bucket_name,
             Prefix=prefix,
         )
+        if matching_manifests['KeyCount'] == 0:
+            continue
         for entry in matching_manifests['Contents']:
             key = entry['Key']
             _, version, commit = key.rsplit('-', 2)
@@ -697,7 +699,6 @@ def publish_release_set():
             commit = input['committish']
 
     cfg = _publishing_cfg(parsed)
-    cfg_factory = ctx.cfg_factory()
 
     flavour_set = _flavourset(parsed)
 
@@ -890,7 +891,6 @@ def publish_release_set():
         commit=commit,
         publishing_cfg=cfg,
         release_manifests=release_manifests,
-        cfg_factory=cfg_factory,
     )
 
     if parsed.print_component_descriptor:

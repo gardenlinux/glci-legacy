@@ -50,8 +50,7 @@ def component_descriptor(
     version: str,
     commit: str,
     publishing_cfg: glci.model.PublishingCfg,
-    release_manifests: list[glci.model.OnlineReleaseManifest],
-    cfg_factory,
+    release_manifests: list[glci.model.OnlineReleaseManifest]
 ) -> cm.ComponentDescriptor:
     ocm_repository = publishing_cfg.ocm.ocm_repository
 
