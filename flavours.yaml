@@ -10,6 +10,7 @@ flavour_sets:
         - azure
         - gcp
         - openstack
+        - openstackbaremetal
         - vmware
         modifiers:
         - [ gardener, _prod ]
