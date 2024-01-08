@@ -233,7 +233,11 @@ def oci_image_resources(
                         value=[
                             {
                                 'type': 'emailAddress',
-                                'email': 'thomas.buchner@sap.com',
+                                'email': 'andre.russ@sap.com',
+                            },
+                            {
+                                'type': 'emailAddress',
+                                'email': 'v.riesop@sap.com',
                             },
                         ],
                     ),
@@ -341,7 +345,11 @@ def _image_rootfs_resource(
             value=[
                 {
                     'type': 'emailAddress',
-                    'email': 'thomas.buchner@sap.com',
+                    'email': 'andre.russ@sap.com',
+                },
+                {
+                    'type': 'emailAddress',
+                    'email': 'v.riesop@sap.com',
                 },
             ],
         ),
