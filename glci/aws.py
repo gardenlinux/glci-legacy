@@ -9,6 +9,7 @@ import typing
 import functools
 
 import botocore.client
+from botocore.exceptions import ClientError
 
 import glci.model
 import glci.util
@@ -223,18 +224,23 @@ def set_images_public(
         session = mk_session(region_name=region_name)
         ec2_client = session.client('ec2')
 
-        res = ec2_client.modify_image_attribute(
-            Attribute='launchPermission',
-            ImageId=image_id,
-            LaunchPermission={
-                'Add': [
-                    {
-                        'Group': 'all',
-                    },
-                ],
-            },
-        )
-        response_ok(res)
+        try:
+            res = ec2_client.modify_image_attribute(
+                Attribute='launchPermission',
+                ImageId=image_id,
+                LaunchPermission={
+                    'Add': [
+                        {
+                            'Group': 'all',
+                        },
+                    ],
+                },
+            )
+            response_ok(res)
+
+        except ClientError as e:
+            logger.error(f"Failed to set {image_id=} public in {region_name=}")
+            raise e
 
 
 def copy_image(
