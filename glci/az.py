@@ -873,9 +873,10 @@ def delete_from_azure_community_gallery(
     for public_name in configured_gallery.sharing_profile.community_gallery_info.public_names:
         if public_name == image_community_gallery_name:
             image_gallery_is_configured_gallery = True
+            break
 
     if not image_gallery_is_configured_gallery:
-        raise RuntimeError(f"The community gallery of image {community_gallery_image_id} is not from the configured community gallery.")
+        raise RuntimeError(f"The community gallery of image {community_gallery_image_id} is not from the configured community gallery {shared_gallery_cfg.gallery_name}.")
 
     gallery_image_version = cclient.gallery_image_versions.get(
         resource_group_name=shared_gallery_cfg.resource_group_name,
@@ -938,3 +939,13 @@ def delete_from_azure_community_gallery(
             result = result.result()
     else:
         logger.warning(f"{image_definition=} still contains {image_version_count} image versions - keeping definition")
+
+
+def validate_azure_publishing_config(
+    release: glci.model.OnlineReleaseManifest,
+    publishing_cfg: glci.model.PublishingCfg,
+):
+    azure_publishing_cfg: glci.model.PublishingTargetAzure = publishing_cfg.target(platform=release.platform)
+
+    if azure_publishing_cfg.publish_to_marketplace and not azure_publishing_cfg.marketplace_cfg:
+        raise RuntimeError(f"Expected to publish to Azure Marketplace but no marketplace config in publishing config.")

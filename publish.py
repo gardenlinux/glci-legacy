@@ -67,6 +67,31 @@ def publish_image(
         raise
 
 
+def validate_publishing_configuration(
+    release: gm.OnlineReleaseManifest,
+    cfg: gm.PublishingCfg
+):
+    if release.platform == 'azure':
+        validation_function = glci.az.validate_azure_publishing_config
+    elif release.platform == 'ali':
+        validation_function = None
+    elif release.platform == 'aws':
+        validation_function = None
+    elif release.platform == 'gcp':
+        validation_function = None
+    elif release.platform == 'openstack':
+        validation_function = None
+    elif release.platform == 'openstackbaremetal':
+        validation_function = None
+    elif release.platform == 'oci':
+        validation_function = None
+    else:
+        validation_function = None
+
+    if validation_function:
+        validation_function(release, cfg)
+
+
 def _publish_alicloud_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
