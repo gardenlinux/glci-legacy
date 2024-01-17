@@ -757,6 +757,7 @@ def publish_azure_image(
     storage_account_cfg: glci.model.AzureStorageAccountCfg,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
     marketplace_cfg: glci.model.AzureMarketplaceCfg,
+    hyper_v_generations: list[glci.model.AzureHyperVGeneration],
     publish_to_community_gallery: bool = True,
     publish_to_marketplace: bool = False,
 ) -> glci.model.OnlineReleaseManifest:
@@ -808,7 +809,7 @@ def publish_azure_image(
         published_gallery_images=[],
     )
 
-    for hyper_v_generation in glci.model.AzureHyperVGeneration:
+    for hyper_v_generation in hyper_v_generations:
         if publish_to_marketplace:
             logger.info(f'Publishing Azure Marketplace image for {hyper_v_generation}...')
             marketplace_published_image = publish_to_azure_marketplace(
@@ -836,3 +837,104 @@ def publish_azure_image(
             published_image.published_gallery_images.append(gallery_published_image)
 
     return dataclasses.replace(release, published_image_metadata=published_image)
+
+
+def delete_from_azure_community_gallery(
+    community_gallery_image_id: str,
+    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
+    shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
+    dry_run: bool
+):
+    credential = ClientSecretCredential(
+        tenant_id=service_principal_cfg.tenant_id,
+        client_id=service_principal_cfg.client_id,
+        client_secret=service_principal_cfg.client_secret
+    )
+    cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id)
+
+    # unfortunately, it is not possible to obtain image information from its
+    # community gallery image id through the API
+    # so we have to dissect the string and apply some implicit knowledge about its structure
+    gallery_image_id_parts = community_gallery_image_id.split('/')
+    if len(gallery_image_id_parts) != 7:
+        raise RuntimeError(f"community gallery image id {community_gallery_image_id} does not follow expected semantics")
+    
+    image_community_gallery_name = gallery_image_id_parts[2]
+    image_definition = gallery_image_id_parts[4]
+    image_version = gallery_image_id_parts[6]
+
+    # check if the gallery names from the released artefact and the publishing cfg match
+    configured_gallery = cclient.galleries.get(
+        resource_group_name=shared_gallery_cfg.resource_group_name,
+        gallery_name=shared_gallery_cfg.gallery_name
+    )
+
+    image_gallery_is_configured_gallery = False
+    for public_name in configured_gallery.sharing_profile.community_gallery_info.public_names:
+        if public_name == image_community_gallery_name:
+            image_gallery_is_configured_gallery = True
+
+    if not image_gallery_is_configured_gallery:
+        raise RuntimeError(f"The community gallery of image {community_gallery_image_id} is not from the configured community gallery.")
+
+    gallery_image_version = cclient.gallery_image_versions.get(
+        resource_group_name=shared_gallery_cfg.resource_group_name,
+        gallery_name=shared_gallery_cfg.gallery_name,
+        gallery_image_name=image_definition,
+        gallery_image_version_name=image_version
+    )
+
+    # once again, resource group and image name has to be extracted from this string
+    image_vhd = gallery_image_version.storage_profile.source.id
+    image_vhd_parts = image_vhd.split('/')
+    if len(image_vhd_parts) != 9:
+        raise RuntimeError(f"image resource string {image_vhd} does not follow expected semantics")
+
+    image_vhd_resource_group = image_vhd_parts[4]
+    image_vhd_name = image_vhd_parts[8]
+
+    if dry_run:
+        logger.warning(f"DRY RUN: would delete gallery image version {gallery_image_version.name}")
+        logger.warning(f"DRY RUN: would delete image VHD {image_vhd_name} in resource group {image_vhd_resource_group}")
+    else:
+        logger.info(f"Deleting {image_version=} for {image_definition=} in gallery {shared_gallery_cfg.gallery_name}...")
+        result = cclient.gallery_image_versions.begin_delete(
+            resource_group_name=shared_gallery_cfg.resource_group_name,
+            gallery_name=shared_gallery_cfg.gallery_name,
+            gallery_image_name=image_definition,
+            gallery_image_version_name=image_version
+        )
+        logger.info('...waiting for asynchronous operation to complete')
+        result = result.result()
+        
+        logger.info(f"Deleting image VHD {image_vhd_name} in resource group {image_vhd_resource_group}...")
+        result = cclient.images.begin_delete(
+            resource_group_name=image_vhd_resource_group,
+            image_name=image_vhd_name
+        )
+        logger.info('...waiting for asynchronous operation to complete')
+        result = result.result()
+
+    # check how many image versions are present in this image definition
+    # if none, that delete the image definition
+    gallery_image_versions = cclient.gallery_image_versions.list_by_gallery_image(
+        resource_group_name=shared_gallery_cfg.resource_group_name,
+        gallery_name=shared_gallery_cfg.gallery_name,
+        gallery_image_name=image_definition
+    )
+
+    image_version_count = sum(1 for _ in gallery_image_versions)
+    if image_version_count == 0:
+        if dry_run:
+            logger.warning(f"DRY RUN: would delete {image_definition=} in gallery {shared_gallery_cfg.gallery_name}")
+        else:
+            logger.info(f"Deleting {image_definition=} in gallery {shared_gallery_cfg.gallery_name}...")
+            result = cclient.gallery_images.begin_delete(
+                resource_group_name=shared_gallery_cfg.resource_group_name,
+                gallery_name=shared_gallery_cfg.gallery_name,
+                gallery_image_name=image_definition
+            )
+            logger.info('...waiting for asynchronous operation to complete')
+            result = result.result()
+    else:
+        logger.warning(f"{image_definition=} still contains {image_version_count} image versions - keeping definition")

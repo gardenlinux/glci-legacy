@@ -758,7 +758,8 @@ class PublishingTargetAzure:
     gallery_cfg_name: str
     storage_account_cfg_name: str
     service_principal_cfg_name: str
-    marketplace_cfg: AzureMarketplaceCfg
+    marketplace_cfg: typing.Optional[AzureMarketplaceCfg]
+    hyper_v_generations: typing.List[AzureHyperVGeneration]
     publish_to_marketplace: bool
     publish_to_community_galleries: bool
     platform: Platform = 'azure' # should not overwrite

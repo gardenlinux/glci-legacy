@@ -161,8 +161,9 @@ def _publish_azure_image(
         storage_account_cfg=storage_account_cfg_serialized,
         shared_gallery_cfg=shared_gallery_cfg_serialized,
         marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
+        hyper_v_generations=azure_publishing_cfg.hyper_v_generations,
         publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
-        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace,
+        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace
     )
 
 
