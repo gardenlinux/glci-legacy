@@ -37,6 +37,7 @@
       gallery_cfg_name: 'gardenlinux-community-gallery'
       storage_account_cfg_name: 'gardenlinux-community-gallery'
       service_principal_cfg_name: 'gardenlinux'
+      hyper_v_generations: ['V1', 'V2']
       marketplace_cfg:
         offer_id: 'gardenlinux'
         publisher_id: 'sap'
@@ -102,3 +103,10 @@
         hw_disk_bus: scsi
         vmware_adaptertype: paraVirtual
         vmware_disktype: streamOptimized
+    - platform: 'azure'
+      service_principal_cfg_name: 'gardenlinux-integration-test'
+      storage_account_cfg_name: 'gardenlinux-integration-test'
+      gallery_cfg_name: 'gardenlinux-integration-test'
+      hyper_v_generations: ['V1']
+      publish_to_marketplace: false
+      publish_to_community_galleries: true

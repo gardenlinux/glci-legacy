@@ -67,6 +67,31 @@ def publish_image(
         raise
 
 
+def validate_publishing_configuration(
+    release: gm.OnlineReleaseManifest,
+    cfg: gm.PublishingCfg
+):
+    if release.platform == 'azure':
+        validation_function = glci.az.validate_azure_publishing_config
+    elif release.platform == 'ali':
+        validation_function = None
+    elif release.platform == 'aws':
+        validation_function = None
+    elif release.platform == 'gcp':
+        validation_function = None
+    elif release.platform == 'openstack':
+        validation_function = None
+    elif release.platform == 'openstackbaremetal':
+        validation_function = None
+    elif release.platform == 'oci':
+        validation_function = None
+    else:
+        validation_function = None
+
+    if validation_function:
+        validation_function(release, cfg)
+
+
 def _publish_alicloud_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
@@ -161,8 +186,9 @@ def _publish_azure_image(
         storage_account_cfg=storage_account_cfg_serialized,
         shared_gallery_cfg=shared_gallery_cfg_serialized,
         marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
+        hyper_v_generations=azure_publishing_cfg.hyper_v_generations,
         publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
-        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace,
+        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace
     )
 
 
