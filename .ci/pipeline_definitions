@@ -51,9 +51,6 @@ glci:
               image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image
               dockerfile: 'Dockerfile'
               tag_as_latest: true
-        version:
-          versionfile: 'job-image-version'
-          preprocess: 'finalise'
         release:
           release_on_github: false
         component_descriptor:
