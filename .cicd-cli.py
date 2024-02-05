@@ -928,6 +928,18 @@ def cleanup_release_set():
         '--version',
     )
     parser.add_argument(
+        '--commit',
+        help='committish of the release to be cleaned (if not specified, it is obtained from the component descriptor)',
+        dest='committish'
+    )
+    parser.add_argument(
+        '--skip-component-descriptor',
+        help='just delete artefacts based on their release manifests, do not touch component descriptors',
+        dest='skip_component_descriptor',
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
         '--ocm-repo',
         help='the component-repo to retrieve gardenlinux-component-descriptor from',
         default=None,
@@ -975,27 +987,34 @@ def cleanup_release_set():
 
     cfg = _publishing_cfg(parsed)
 
-    if not parsed.ocm_repo:
-        ocm_repo_base_url = cfg.ocm.ocm_repository
-    else:
-        ocm_repo_base_url = parsed.ocm_repo
-
-    component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
-        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url)
-    )
-
-    gardenlinux_component = component_descriptor_lookup(('github.com/gardenlinux/gardenlinux', version)).component
-
-    if parsed.print_component_descriptor:
-        pp.pprint(gardenlinux_component)
-
     commit = None
 
-    for s in gardenlinux_component.sources:
-        if s.name != "gardenlinux":
-            continue
-        commit = s.access.commit
-        break
+    if parsed.skip_component_descriptor and parsed.committish:
+        commit = parsed.committish
+        if len(commit) != 40:
+            repo = git.Repo(path=paths.gardenlinux_dir)
+            commit = repo.git.rev_parse(commit)
+            logger.info(f'expanded commit to {commit}')
+    else:
+        if not parsed.ocm_repo:
+            ocm_repo_base_url = cfg.ocm.ocm_repository
+        else:
+            ocm_repo_base_url = parsed.ocm_repo
+
+        component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
+            ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url)
+        )
+
+        gardenlinux_component = component_descriptor_lookup(('github.com/gardenlinux/gardenlinux', version)).component
+
+        if parsed.print_component_descriptor:
+            pp.pprint(gardenlinux_component)
+
+        for s in gardenlinux_component.sources:
+            if s.name != "gardenlinux":
+                continue
+            commit = s.access.commit
+            break
 
     target_manifest_buckets = tuple(cfg.target_manifest_buckets)
     if len(target_manifest_buckets) == 0:
