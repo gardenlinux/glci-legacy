@@ -43,7 +43,7 @@
         publisher_id: 'sap'
         plan_id: 'greatest'
         notification_emails: ['thomas.buchner@sap.com','dirk.marwinski@sap.com','andre.russ@sap.com']
-      publish_to_marketplace: true
+      publish_to_marketplace: false
       publish_to_community_galleries: true
     - platform: 'openstack'
       environment_cfg_name: 'gardenlinux'
