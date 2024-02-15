@@ -84,6 +84,11 @@ def upload_image_from_gcp_store(
             'rawDisk': {
                 'source': image_blob.generate_signed_url(int(time.time())),
             },
+            'guestOsFeatures': [
+                {
+                    'type': 'GVNIC'
+                },
+            ],
         },
     )
 
