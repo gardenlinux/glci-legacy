@@ -2,6 +2,7 @@ import dataclasses
 import tempfile
 import time
 import logging
+import os
 
 import google.cloud.storage.blob
 import google.cloud.storage.client
@@ -13,7 +14,7 @@ import glci.util
 logger = lambda: logging.getLogger(__name__)
 
 
-def upload_image_to_gcp_store(
+def upload_image_to_gcs_bucket(
     storage_client: google.cloud.storage.Client,
     s3_client,
     release: glci.model.OnlineReleaseManifest,
@@ -31,7 +32,13 @@ def upload_image_to_gcp_store(
 
     # XXX: rather do streaming
     with tempfile.TemporaryFile() as tfh:
-        logger().info(f'downloading image from {s3_bucket_name=}')
+        resp = s3_client.get_object(
+            Bucket=s3_bucket_name,
+            Key=raw_image_key,
+        )
+        size = resp['ContentLength']
+        logger().info(f'downloading image from {s3_bucket_name=} to temporary location ({size=})')
+
         s3_client.download_fileobj(
             Bucket=s3_bucket_name,
             Key=raw_image_key,
@@ -39,14 +46,19 @@ def upload_image_to_gcp_store(
         )
         logger().info(f'downloaded image from {s3_bucket_name=}')
 
+        # get the size of the temp file on local disk
+        tfh.seek(0, os.SEEK_END)
+        size = tfh.tell()
         tfh.seek(0)
 
-        logger().info(f're-uploading image to gcp {gcp_bucket_name=} {image_blob_name=}')
+        logger().info(f'uploading image from temporary location to gcp {gcp_bucket_name=} {image_blob_name=} ({size=})')
         gcp_bucket = storage_client.get_bucket(gcp_bucket_name)
         image_blob = gcp_bucket.blob(image_blob_name)
         image_blob.upload_from_file(
             tfh,
             content_type='application/x-xz',
+            size=size,
+            timeout=600, # allow for a longer upload timeout on slow connections
         )
         logger().info(f'uploaded image {raw_image_key=} to {image_blob_name=}')
         return image_blob
@@ -56,17 +68,23 @@ def delete_image_from_gcs_bucket(
     storage_client: google.cloud.storage.Client,
     release: glci.model.OnlineReleaseManifest,
     publishing_cfg: glci.model.PublishingTargetGCP,
+    dry_run: bool
 ):
     gcp_bucket_name = publishing_cfg.gcp_bucket_name
     image_blob_name = f'gardenlinux-{release.version}.tar.gz'
 
+    if dry_run:
+        logger().warning(f"DRY RUN: would delete {image_blob_name=} in {gcp_bucket_name=}")
+        return
+
     gcp_bucket = storage_client.get_bucket(gcp_bucket_name)
     image_blob = gcp_bucket.blob(image_blob_name)
     if image_blob.exists():
+        logger().info(f"deleting {image_blob_name=} in {gcp_bucket_name=}")
         image_blob.delete()
 
 
-def upload_image_from_gcp_store(
+def insert_image_to_gce_image_store(
     compute_client,
     image_blob: google.cloud.storage.blob.Blob,
     gcp_project_name: str,
@@ -148,17 +166,22 @@ def delete_image_from_gce_image_store(
     compute_client,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
+    dry_run: bool
 ) -> glci.model.OnlineReleaseManifest:
     image_name = _get_image_name_from_release_manifest(release)
 
     images = compute_client.images()
 
+    if dry_run:
+        logger().warning(f"DRY RUN: would delete {image_name=} in {gcp_project_name=}")
+        return
+
+    logger().info(f'deleting stale image {image_name=} from project {gcp_project_name=}')
+
     deletion_rq = images.delete(
         project=gcp_project_name,
         image=image_name,
     )
-
-    logger().info(f'deleting stale image {image_name=} from project {gcp_project_name=}')
 
     resp = deletion_rq.execute()
     op_name = resp['name']
@@ -182,7 +205,7 @@ def upload_and_publish_image(
     release: glci.model.OnlineReleaseManifest,
     publishing_cfg: glci.model.PublishingTargetGCP,
 ):
-    image_blob = upload_image_to_gcp_store(
+    image_blob = upload_image_to_gcs_bucket(
         storage_client=storage_client,
         s3_client=s3_client,
         release=release,
@@ -192,7 +215,7 @@ def upload_and_publish_image(
     release_manifest = None
 
     try:
-        release_manifest = upload_image_from_gcp_store(
+        release_manifest = insert_image_to_gce_image_store(
             compute_client=compute_client,
             image_blob=image_blob,
             gcp_project_name=gcp_project_name,
@@ -206,7 +229,7 @@ def upload_and_publish_image(
                 gcp_project_name=gcp_project_name,
                 release=release,
             )
-            release_manifest = upload_image_from_gcp_store(
+            release_manifest = insert_image_to_gce_image_store(
                 compute_client=compute_client,
                 image_blob=image_blob,
                 gcp_project_name=gcp_project_name,
@@ -222,17 +245,20 @@ def cleanup_image(
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
     publishing_cfg: glci.model.PublishingTargetGCP,
+    dry_run: bool
 ):
     delete_image_from_gce_image_store(
         compute_client=compute_client,
         gcp_project_name=gcp_project_name,
         release=release,
+        dry_run=dry_run
     )
 
     delete_image_from_gcs_bucket(
         storage_client=storage_client,
         release=release,
         publishing_cfg=publishing_cfg,
+        dry_run=dry_run
     )
 
 
