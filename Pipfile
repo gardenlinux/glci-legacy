@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[requires]
+python_version = "3.11"
+
+[packages]
+networkx = "*"
+gardener-cicd-libs = "*"
+msal_extensions = ">=1.1"
+azure-core = "1.30.0"
+azure-identity = "1.15.0"
+azure-mgmt-compute = "30.5.0"
+azure-mgmt-core = "1.4.0"
+azure-mgmt-network = "25.3.0"
+azure-mgmt-resource = "23.0.1"
+azure-mgmt-storage = "21.1.0"
+azure-storage-blob = "12.19.0"

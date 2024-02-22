@@ -1,0 +1,11 @@
+version: 2
+updates:
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    versioning-strategy: "increase-if-necessary"
+    reviewers:
+      - "gardenlinux/garden-linux-maintainers"
+      - "gardenlinux/glci-maintainers"
