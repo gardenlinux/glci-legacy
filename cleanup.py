@@ -39,7 +39,7 @@ def cleanup_image(
     elif release.platform == 'aws':
         cleanup_function = cleanup_aws_images_by_id
     elif release.platform == 'gcp':
-        cleanup_function = None # cleanup_gcp_images
+        cleanup_function = cleanup_gcp_images
     elif release.platform == 'azure':
         cleanup_function = cleanup_azure_community_gallery_images
     elif release.platform == 'openstack':
@@ -121,6 +121,7 @@ def clean_alicloud_images(
 def cleanup_gcp_images(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
+    dry_run: bool = False
 ) -> gm.OnlineReleaseManifest:
     gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
     cfg_factory = ci.util.ctx().cfg_factory()
@@ -134,6 +135,7 @@ def cleanup_gcp_images(
         gcp_project_name=gcp_cfg.project(),
         release=release,
         publishing_cfg=gcp_publishing_cfg,
+        dry_run=dry_run
     )
 
 
