@@ -102,6 +102,11 @@ def insert_image_to_gce_image_store(
             'rawDisk': {
                 'source': image_blob.generate_signed_url(int(time.time())),
             },
+            'guestOsFeatures': [
+                {
+                    'type': 'GVNIC'
+                },
+            ],
         },
     )
 
