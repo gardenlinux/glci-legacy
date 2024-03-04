@@ -104,7 +104,7 @@ def insert_image_to_gce_image_store(
             },
             'guestOsFeatures': [
                 {
-                    'type': 'GVNIC'
+                    'type': 'GVNIC,VIRTIO_SCSI_MULTIQUEUE,UEFI_COMPATIBLE'
                 },
             ],
         },
