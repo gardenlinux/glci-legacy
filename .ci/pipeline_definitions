@@ -40,7 +40,7 @@ glci:
           - '../run_publish_release_set.sh'
           - '--version-name'
           - 'default'
-          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.1.0
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.2.0
     update-job-image:
       repo:
         trigger: false
