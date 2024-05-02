@@ -556,16 +556,9 @@ def _create_shared_image(
 
     # rm regions not yet supported (although they are returned by the subscription-client)
     regions -= {
-        'australiacentral2',
-        'brazilsoutheast',
         'brazilus',
-        'francesouth',
-        'germanynorth',
         'jioindiacentral',
-        'norwaywest',
-        'southafricawest',
-        'switzerlandwest',
-        'uaecentral'
+        'jioindiawest',
     }
 
     logger.info(f'Creating gallery image version {image_version=}')
