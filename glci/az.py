@@ -5,11 +5,9 @@ from datetime import (
 )
 from enum import Enum
 import logging
-import typing
 
 import requests
-from glci import util
-import version
+
 from msal import ConfidentialClientApplication
 from azure.storage.blob import (
     BlobClient,
@@ -31,6 +29,7 @@ from azure.mgmt.compute.models import (
     CommunityGalleryImageVersion,
     GalleryArtifactVersionSource,
     GalleryImage,
+    GalleryImageFeature,
     GalleryImageIdentifier,
     GalleryImageVersion,
     GalleryImageVersionPublishingProfile,
@@ -536,6 +535,10 @@ def _create_shared_image(
             description=shared_gallery_cfg.description,
             eula=shared_gallery_cfg.eula,
             release_note_uri=shared_gallery_cfg.release_note_uri,
+            features=[
+                GalleryImageFeature(name="IsAcceleratedNetworkSupported", value="True"),
+                GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
+            ],
             os_type=OperatingSystemTypes.LINUX,
             os_state=OperatingSystemStateTypes.GENERALIZED,
             hyper_v_generation=HyperVGeneration(hyper_v_generation.value),

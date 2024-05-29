@@ -34,7 +34,7 @@
       gcp_cfg_name: 'gardenlinux'
       gcp_bucket_name: 'gardenlinux-images'
     - platform: 'azure'
-      gallery_cfg_name: 'gardenlinux-community-gallery'
+      gallery_cfg_name: 'gardenlinux-community-gallery-nvme'
       storage_account_cfg_name: 'gardenlinux-community-gallery'
       service_principal_cfg_name: 'gardenlinux'
       hyper_v_generations: ['V1', 'V2']
@@ -115,10 +115,10 @@
       service_principal_cfg_name: 'gardenlinux-integration-test'
       storage_account_cfg_name: 'gardenlinux-integration-test'
       gallery_cfg_name: 'gardenlinux-integration-test'
-      hyper_v_generations: ['V1']
+      hyper_v_generations: ['V1', 'V2']
       publish_to_marketplace: false
       publish_to_community_galleries: true
-      gallery_regions: ['northeurope']
+      gallery_regions: ['northeurope', 'westeurope']
     - platform: 'gcp'
       gcp_cfg_name: 'gardenlinux-integration-test'
       gcp_bucket_name: 'gardenlinux-test-images'
