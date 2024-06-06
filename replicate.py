@@ -25,28 +25,44 @@ def check_blob_sizes(
         target_client: client,
         target_bucket: str,
         target_key: str
-):
+) -> bool:
     try:
+        checksum_not_available_default = 'checksum not available'
+
         # there were cases where replicated blobs were corrupt (typically, they had
         # length of zero octets); as a (weak) validation, at least compare sizes
         resp = target_client.head_object(
             Bucket=target_bucket,
             Key=target_key,
+            ChecksumMode='ENABLED'
         )
         replicated_len = resp['ContentLength']
+        replicated_sha256 = resp.get('ChecksumSHA256', checksum_not_available_default)
 
         resp = source_client.head_object(
             Bucket=source_bucket,
             Key=source_key,
+            ChecksumMode='ENABLED'
         )
         source_len = resp['ContentLength']
+        source_sha256 = resp.get('ChecksumSHA256', checksum_not_available_default)
+
+        size_match = False
+        checksum_match = False
 
         if replicated_len == source_len:
             logger.info(f"replicated blob sizes match: {source_len=}, {replicated_len=}")
-            return True
+            size_match = True
         else:
             logger.warning(f"replicated blob sizes do NOT match: {source_len=}, {replicated_len=}")
-            return False
+
+        if replicated_sha256 == source_sha256:
+            logger.info(f"replicated checksums match: {replicated_sha256=}")
+            checksum_match = True
+        else:
+            logger.warning(f"replicated SHA56 checksums do NOT match: {source_sha256=}, {replicated_sha256=}")
+
+        return size_match and checksum_match
     except botocore.exceptions.ClientError as e:
         code = e.response['Error']['Code']
         if code == '404':
