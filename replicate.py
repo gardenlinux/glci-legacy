@@ -3,12 +3,14 @@ import tempfile
 import typing
 import os
 
+import binascii
+import base64
+
 import botocore.exceptions
 import boto3.s3.transfer as bt
 import botocore.client as client
 
 import ccc.aws
-import model
 
 import glci.model as gm
 import glci.util as gu
@@ -18,7 +20,7 @@ from glci.aws import response_ok
 logger = logging.getLogger(__name__)
 
 
-def check_blob_sizes(
+def check_blob_size_and_checksum(
         source_client: client,
         source_bucket: str,
         source_key: str,
@@ -37,7 +39,9 @@ def check_blob_sizes(
             ChecksumMode='ENABLED'
         )
         replicated_len = resp['ContentLength']
-        replicated_sha256 = resp.get('ChecksumSHA256', checksum_not_available_default)
+        replicated_sha256 = resp.get('ChecksumSHA256', None)
+        if replicated_sha256 is not None:
+            replicated_sha256 = binascii.hexlify(base64.b64decode(replicated_sha256))
 
         resp = source_client.head_object(
             Bucket=source_bucket,
@@ -45,7 +49,9 @@ def check_blob_sizes(
             ChecksumMode='ENABLED'
         )
         source_len = resp['ContentLength']
-        source_sha256 = resp.get('ChecksumSHA256', checksum_not_available_default)
+        source_sha256 = resp.get('ChecksumSHA256', None)
+        if source_sha256 is not None:
+            source_sha256 = binascii.hexlify(base64.b64decode(source_sha256))
 
         size_match = False
         checksum_match = False
@@ -95,7 +101,7 @@ def replicate_image_blobs(
             suffix = gu.vm_image_artefact_for_platform(platform=manifest.platform)
             image_blob_ref =  manifest.path_by_suffix(suffix=suffix)
 
-            if check_blob_sizes(s3_source_client,
+            if check_blob_size_and_checksum(s3_source_client,
                                 source_bucket.bucket_name,
                                 image_blob_ref.s3_key,
                                 s3_target_client,
@@ -169,7 +175,7 @@ def replicate_image_blobs(
 
             # check again that the transferred/replicated blob in the target has the same size as in the source, if this is not the case because of
             # errors in above upload_fileobj(), vm-image-imports will fail with misleading errors
-            if check_blob_sizes(
+            if check_blob_size_and_checksum(
                 s3_source_client,
                 source_bucket.bucket_name,
                 image_blob_ref.s3_key,

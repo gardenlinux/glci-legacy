@@ -225,6 +225,8 @@ class ReleaseFile:
     '''
     name: str
     suffix: str
+    md5sum: typing.Optional[str]
+    sha256sum: typing.Optional[str]
 
 
 @dataclasses.dataclass(frozen=True)
