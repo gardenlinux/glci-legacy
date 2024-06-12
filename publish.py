@@ -253,13 +253,24 @@ def _publish_openstack_image(
         platform=release.platform,
     )
 
-    s3_client = ccc.aws.session(
-        publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
-    ).client('s3')
     cfg_factory = ci.util.ctx().cfg_factory()
     openstack_environments_cfg = cfg_factory.ccee(
         openstack_publishing_cfg.environment_cfg_name,
     )
+
+    s3_bucket_access = {}
+    for project in openstack_environments_cfg.projects():
+        if openstack_publishing_cfg.cn_regions and project.region() in openstack_publishing_cfg.cn_regions.region_names:
+            build_result_bucket = publishing_cfg.buildresult_bucket(openstack_publishing_cfg.cn_regions.buildresult_bucket)
+            s3_bucket_access[project.region()] = (
+                ccc.aws.session(build_result_bucket.aws_cfg_name).client('s3'),
+                build_result_bucket.bucket_name
+            )
+        else:
+            s3_bucket_access[project.region()] = (
+                ccc.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name).client('s3'),
+                publishing_cfg.origin_buildresult_bucket.bucket_name
+            )
 
     username = openstack_environments_cfg.credentials().username()
     password = openstack_environments_cfg.credentials().passwd()
@@ -280,7 +291,7 @@ def _publish_openstack_image(
     image_properties = openstack_publishing_cfg.image_properties
 
     return glci.openstack_image.upload_and_publish_image(
-        s3_client,
+        s3_bucket_access=s3_bucket_access,
         openstack_environments_cfgs=openstack_env_cfgs,
         image_properties=image_properties,
         release=release,

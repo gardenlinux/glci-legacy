@@ -13,7 +13,7 @@
       role: 'replica'
       bucket_name: 'gardenlinux-github-releases'
       aws_cfg_name: 'gardenlinux-cn'
-      platforms: ['aws']
+      platforms: ['aws', 'openstack', 'openstackbaremetal']
   ocm:
     ocm_repository: europe-docker.pkg.dev/gardener-project/releases
   targets:
@@ -47,6 +47,10 @@
       publish_to_community_galleries: true
     - platform: 'openstack'
       environment_cfg_name: 'gardenlinux'
+      cn_regions:
+        region_names:
+        - ap-cn-1
+        buildresult_bucket: 'replica-cn'
       image_properties:
         hypervisor_type: vmware
         vmware_ostype: debian10_64Guest
@@ -56,6 +60,10 @@
         vmware_disktype: streamOptimized
     - platform: 'openstackbaremetal'
       environment_cfg_name: 'gardenlinux'
+      cn_regions:
+        region_names:
+        - ap-cn-1
+        buildresult_bucket: 'replica-cn'
       suffix: 'baremetal'
       image_properties:
         hypervisor_type: baremetal
