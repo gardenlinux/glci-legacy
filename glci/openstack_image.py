@@ -8,6 +8,8 @@ from time import sleep
 from openstack import connect
 
 import glci
+import glci.model
+import glci.util
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +65,7 @@ class OpenstackImageUploader:
 
         logger.info(
             f'Uploading image for region {self.openstack_env.region} '
-            f'({self.openstack_env.project_name}) from {url} '
+            f'({self.openstack_env.project_name}) from {url.split("?")[0]} '
             f'with timeout of {timeout_seconds} seconds'
         )
 
@@ -108,7 +110,7 @@ class OpenstackImageUploader:
 
 
 def upload_and_publish_image(
-    s3_client,
+    s3_bucket_access,
     openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
     image_properties: dict,
     release: glci.model.OnlineReleaseManifest,
@@ -128,17 +130,20 @@ def upload_and_publish_image(
     openstack_release_artifact = glci.util.vm_image_artefact_for_platform('openstack')
     openstack_release_artifact_path = release.path_by_suffix(openstack_release_artifact)
 
-    s3_image_url = s3_client.generate_presigned_url(
-        'get_object',
-        ExpiresIn=1200*len(openstack_environments_cfgs), # 20min validity for each openstack enviroment/region
-        Params={
-            'Bucket': openstack_release_artifact_path.s3_bucket_name,
-            'Key': openstack_release_artifact_path.s3_key,
-        },
-    )
-
     published_images = []
     for env_cfg in openstack_environments_cfgs:
+        s3_client=s3_bucket_access[env_cfg.region][0]
+        s3_bucket_name=s3_bucket_access[env_cfg.region][1]
+
+        s3_image_url = s3_client.generate_presigned_url(
+            'get_object',
+            ExpiresIn=1200,
+            Params={
+                'Bucket': s3_bucket_name,
+                'Key': openstack_release_artifact_path.s3_key,
+            },
+        )
+
         uploader = OpenstackImageUploader(env_cfg)
         image_id = uploader.upload_image_from_url(image_name, s3_image_url, image_meta)
         uploader.wait_image_ready(image_id)

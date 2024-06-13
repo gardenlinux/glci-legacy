@@ -225,6 +225,8 @@ class ReleaseFile:
     '''
     name: str
     suffix: str
+    md5sum: typing.Optional[str]
+    sha256sum: typing.Optional[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -771,7 +773,13 @@ class PublishingTargetOpenstack:
     image_properties: typing.Optional[dict[str, str]]
     suffix: typing.Optional[str]
     copy_regions: typing.Optional[list[str]]
+    cn_regions: typing.Optional[OpenstackChinaRegions]
     platform: Platform = 'openstack' # should not overwrite
+
+@dataclasses.dataclass
+class OpenstackChinaRegions:
+    region_names: typing.List[str]
+    buildresult_bucket: str
 
 @dataclasses.dataclass
 class PublishingTargetOpenstackBareMetal(PublishingTargetOpenstack):
@@ -859,7 +867,7 @@ class PublishingCfg:
         raise RuntimeError('did not find manifest-bucket w/ role `source`')
 
     @property
-    def target_manifest_buckets(self) -> typing.Tuple[BuildresultS3Bucket, None, None]:
+    def target_manifest_buckets(self) -> typing.Generator[BuildresultS3Bucket, None, None]:
         for bucket in self.manifest_s3_buckets:
             if bucket.role is ManifestBucketRole.TARGET:
                 yield bucket

@@ -792,10 +792,14 @@ def publish_release_set():
         run_sync = False
 
     if run_sync:
-        replicate.replicate_image_blobs(
+        replicas_present = replicate.check_replicated_image_blobs(
             publishing_cfg=cfg,
             release_manifests=release_manifests,
         )
+
+        if not replicas_present:
+            phase_logger.error(f"not all replicas are present - check the Garden Linux build and upload-to-S3 job")
+            exit(1)
     else:
         phase_logger.info('skipping sync-images (--skip-previous-phases)')
 
