@@ -29,7 +29,7 @@ glci:
       - name: 'GARDENLINUX'
         cfg_name: 'github_com'
         path: 'gardenlinux/gardenlinux'
-        branch: 'main'
+        branch: 'rel-1443'
       - name: 'GARDENLINUX_BUILDER'
         cfg_name: 'github_com'
         path: 'gardenlinux/builder'
