@@ -1,6 +1,7 @@
 glci:
   base_definition:
     traits:
+      version: ~
       notifications:
         default:
           on_error:
@@ -53,6 +54,9 @@ glci:
               tag_as_latest: true
         release:
           release_on_github: false
+        version:
+          preprocess: 'finalize'
+          inject_effective_version: True
         component_descriptor:
           component_name: 'github.com/gardenlinux/glci/utils'
           ocm_repository: europe-docker.pkg.dev/gardener-project/releases
