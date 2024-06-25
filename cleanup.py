@@ -251,6 +251,7 @@ def cleanup_azure_community_gallery_images(
         identifier_publisher=shared_gallery_cfg.identifier_publisher(),
         identifier_offer=shared_gallery_cfg.identifier_offer(),
         identifier_sku=shared_gallery_cfg.identifier_sku(),
+        regions=azure_publishing_cfg.gallery_regions,
     )
 
     published_gallery_images = release.published_image_metadata.published_gallery_images

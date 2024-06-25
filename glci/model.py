@@ -637,6 +637,7 @@ class AzureSharedGalleryCfg:
     identifier_publisher: str
     identifier_offer: str
     identifier_sku: str
+    regions: tuple[str]
 
 @dataclasses.dataclass(frozen=True)
 class OpenstackEnvironment:
@@ -764,6 +765,7 @@ class PublishingTargetAzure:
     hyper_v_generations: typing.List[AzureHyperVGeneration]
     publish_to_marketplace: bool
     publish_to_community_galleries: bool
+    gallery_regions: typing.Optional[list[str]]
     platform: Platform = 'azure' # should not overwrite
 
 
