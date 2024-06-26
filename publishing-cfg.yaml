@@ -118,6 +118,7 @@
       hyper_v_generations: ['V1']
       publish_to_marketplace: false
       publish_to_community_galleries: true
+      gallery_regions: ['northeurope']
     - platform: 'gcp'
       gcp_cfg_name: 'gardenlinux-integration-test'
       gcp_bucket_name: 'gardenlinux-test-images'

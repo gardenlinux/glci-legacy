@@ -521,7 +521,8 @@ def _create_shared_image(
     image_name: str,
     image_version: str,
     hyper_v_generation: glci.model.AzureHyperVGeneration,
-    source_id: str
+    source_id: str,
+    gallery_regions: list[str]
 ) -> CommunityGalleryImageVersion:
     image_definition_name=_append_hyper_v_generation(image_name, hyper_v_generation)
 
@@ -551,6 +552,7 @@ def _create_shared_image(
     regions = {
         l.name
         for l in sbclient.subscriptions.list_locations(subscription_id)
+            if gallery_regions is None or l.name in gallery_regions
     }
     regions.add(shared_gallery_cfg.location) # ensure that the gallery's location is present
 
@@ -560,6 +562,7 @@ def _create_shared_image(
         'jioindiacentral',
         'jioindiawest',
     }
+    logger.info(f"gallery {regions=}")
 
     logger.info(f'Creating gallery image version {image_version=}')
     result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
@@ -690,7 +693,8 @@ def publish_to_azure_community_gallery(
         image_name=shared_gallery_cfg.published_name,
         image_version=published_version,
         hyper_v_generation=hyper_v_generation,
-        source_id=result.id
+        source_id=result.id,
+        gallery_regions=shared_gallery_cfg.regions
     )
 
     unique_id = shared_img.unique_id
