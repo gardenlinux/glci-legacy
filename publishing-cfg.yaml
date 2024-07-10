@@ -25,6 +25,8 @@
       aws_cfgs:
         - aws_cfg_name: 'gardenlinux'
           buildresult_bucket: 'origin'
+        - aws_cfg_name: 'gardenlinux-cn'
+          buildresult_bucket: 'replica-cn'
       image_tags:
         static_tags:
           sec-by-def-public-image-exception: enabled
