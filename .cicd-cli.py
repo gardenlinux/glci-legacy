@@ -1024,7 +1024,7 @@ def cleanup_release_set():
 
     target_manifest_buckets = tuple(cfg.target_manifest_buckets)
     if len(target_manifest_buckets) == 0:
-        raise RuntimeError(f"no target manifest buckets specified")
+        target_manifest_buckets = (cfg.source_manifest_bucket,)
     elif len(target_manifest_buckets) > 1:
         raise RuntimeError(f"more than one target manifest buckets specified - this is currently not supported")
 
