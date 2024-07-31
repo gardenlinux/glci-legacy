@@ -224,45 +224,52 @@ def cleanup_azure_community_gallery_images(
     dry_run: bool = False
 ):
     cfg_factory = ci.util.ctx().cfg_factory()
-    azure_publishing_cfg: gm.PublishingTargetAzure = publishing_cfg.target(platform=release.platform)
+    azure_publishing_cfgs: list[gm.PublishingTargetAzure] = publishing_cfg.target_multi(platform=release.platform)
 
-    azure_principal = cfg_factory.azure_service_principal(
-        cfg_name=azure_publishing_cfg.service_principal_cfg_name,
-    )
+    for azure_publishing_cfg in azure_publishing_cfgs:
+        logger.info(f"targetting {azure_publishing_cfg.cloud}")
 
-    azure_principal_serialized =  gm.AzureServicePrincipalCfg(
-        tenant_id=azure_principal.tenant_id(),
-        client_id=azure_principal.client_id(),
-        client_secret=azure_principal.client_secret(),
-        subscription_id=azure_principal.subscription_id(),
-    )
-
-    shared_gallery_cfg = cfg_factory.azure_shared_gallery(
-        cfg_name=azure_publishing_cfg.gallery_cfg_name,
-    )
-    shared_gallery_cfg_serialized = gm.AzureSharedGalleryCfg(
-        resource_group_name=shared_gallery_cfg.resource_group_name(),
-        gallery_name=shared_gallery_cfg.gallery_name(),
-        location=shared_gallery_cfg.location(),
-        published_name=shared_gallery_cfg.published_name(),
-        description=shared_gallery_cfg.description(),
-        eula=shared_gallery_cfg.eula(),
-        release_note_uri=shared_gallery_cfg.release_note_uri(),
-        identifier_publisher=shared_gallery_cfg.identifier_publisher(),
-        identifier_offer=shared_gallery_cfg.identifier_offer(),
-        identifier_sku=shared_gallery_cfg.identifier_sku(),
-        regions=azure_publishing_cfg.gallery_regions,
-    )
-
-    published_gallery_images = release.published_image_metadata.published_gallery_images
-
-    for gallery_image in published_gallery_images:
-        glci.az.delete_from_azure_community_gallery(
-            community_gallery_image_id=gallery_image.community_gallery_image_id,
-            service_principal_cfg=azure_principal_serialized,
-            shared_gallery_cfg=shared_gallery_cfg_serialized,
-            dry_run=dry_run
+        azure_principal = cfg_factory.azure_service_principal(
+            cfg_name=azure_publishing_cfg.service_principal_cfg_name,
         )
+
+        azure_principal_serialized =  gm.AzureServicePrincipalCfg(
+            tenant_id=azure_principal.tenant_id(),
+            client_id=azure_principal.client_id(),
+            client_secret=azure_principal.client_secret(),
+            subscription_id=azure_principal.subscription_id(),
+        )
+
+        shared_gallery_cfg = cfg_factory.azure_shared_gallery(
+            cfg_name=azure_publishing_cfg.gallery_cfg_name,
+        )
+        shared_gallery_cfg_serialized = gm.AzureSharedGalleryCfg(
+            resource_group_name=shared_gallery_cfg.resource_group_name(),
+            gallery_name=shared_gallery_cfg.gallery_name(),
+            location=shared_gallery_cfg.location(),
+            published_name=shared_gallery_cfg.published_name(),
+            description=shared_gallery_cfg.description(),
+            eula=shared_gallery_cfg.eula(),
+            release_note_uri=shared_gallery_cfg.release_note_uri(),
+            identifier_publisher=shared_gallery_cfg.identifier_publisher(),
+            identifier_offer=shared_gallery_cfg.identifier_offer(),
+            identifier_sku=shared_gallery_cfg.identifier_sku(),
+            regions=azure_publishing_cfg.gallery_regions,
+        )
+
+        published_gallery_images = release.published_image_metadata.published_gallery_images
+
+        for gallery_image in published_gallery_images:
+            if gallery_image.azure_cloud != azure_publishing_cfg.cloud.value:
+                continue
+
+            glci.az.delete_from_azure_community_gallery(
+                community_gallery_image_id=gallery_image.community_gallery_image_id,
+                service_principal_cfg=azure_principal_serialized,
+                shared_gallery_cfg=shared_gallery_cfg_serialized,
+                azure_cloud=azure_publishing_cfg.cloud,
+                dry_run=dry_run
+            )
 
 
 def clean_release_manifest_sets(
