@@ -136,60 +136,74 @@ def _publish_azure_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
 ) -> str:
-    azure_publishing_cfg: gm.PublishingTargetAzure = publishing_cfg.target(platform=release.platform)
-    aws_session = ccc.aws.session(
-        publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
-    )
-    s3_client = aws_session.client('s3')
-    cfg_factory = ci.util.ctx().cfg_factory()
+    azure_publishing_cfgs: list[gm.PublishingTargetAzure] = publishing_cfg.target_multi(platform=release.platform)
 
-    storage_account_cfg = cfg_factory.azure_storage_account(
-        azure_publishing_cfg.storage_account_cfg_name,
-    )
-    storage_account_cfg_serialized = gm.AzureStorageAccountCfg(
-        storage_account_name=storage_account_cfg.storage_account_name(),
-        access_key=storage_account_cfg.access_key(),
-        container_name=storage_account_cfg.container_name(),
-        container_name_sig=storage_account_cfg.container_name_sig(),
-    )
-    # get credential object from configured user and secret
-    azure_principal = cfg_factory.azure_service_principal(
-        cfg_name=azure_publishing_cfg.service_principal_cfg_name,
-    )
-    azure_principal_serialized =  gm.AzureServicePrincipalCfg(
-        tenant_id=azure_principal.tenant_id(),
-        client_id=azure_principal.client_id(),
-        client_secret=azure_principal.client_secret(),
-        subscription_id=azure_principal.subscription_id(),
-    )
+    for azure_publishing_cfg in azure_publishing_cfgs:
+        logger.info(f"targetting {azure_publishing_cfg.cloud}")
 
-    shared_gallery_cfg = cfg_factory.azure_shared_gallery(
-        cfg_name=azure_publishing_cfg.gallery_cfg_name,
-    )
-    shared_gallery_cfg_serialized = gm.AzureSharedGalleryCfg(
-        resource_group_name=shared_gallery_cfg.resource_group_name(),
-        gallery_name=shared_gallery_cfg.gallery_name(),
-        location=shared_gallery_cfg.location(),
-        published_name=shared_gallery_cfg.published_name(),
-        description=shared_gallery_cfg.description(),
-        eula=shared_gallery_cfg.eula(),
-        release_note_uri=shared_gallery_cfg.release_note_uri(),
-        identifier_publisher=shared_gallery_cfg.identifier_publisher(),
-        identifier_offer=shared_gallery_cfg.identifier_offer(),
-        identifier_sku=shared_gallery_cfg.identifier_sku(),
-    )
+        if azure_publishing_cfg.cloud == gm.AzureCloud.CHINA and azure_publishing_cfg.publish_to_marketplace:
+            logger.warning("Publishing to Azure Marketplace in Azure China is not supported, disabling it")
+            azure_publishing_cfg.publish_to_marketplace = False
 
-    return glci.az.publish_azure_image(
-        s3_client=s3_client,
-        release=release,
-        service_principal_cfg=azure_principal_serialized,
-        storage_account_cfg=storage_account_cfg_serialized,
-        shared_gallery_cfg=shared_gallery_cfg_serialized,
-        marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
-        hyper_v_generations=azure_publishing_cfg.hyper_v_generations,
-        publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
-        publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace
-    )
+        aws_session = ccc.aws.session(
+            publishing_cfg.buildresult_bucket(azure_publishing_cfg.buildresult_bucket).aws_cfg_name
+                if azure_publishing_cfg.buildresult_bucket
+                else publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
+        )
+        s3_client = aws_session.client('s3')
+        cfg_factory = ci.util.ctx().cfg_factory()
+
+        storage_account_cfg = cfg_factory.azure_storage_account(
+            azure_publishing_cfg.storage_account_cfg_name,
+        )
+        storage_account_cfg_serialized = gm.AzureStorageAccountCfg(
+            storage_account_name=storage_account_cfg.storage_account_name(),
+            access_key=storage_account_cfg.access_key(),
+            container_name=storage_account_cfg.container_name(),
+            container_name_sig=storage_account_cfg.container_name_sig(),
+            endpoint_suffix=azure_publishing_cfg.cloud.storage_endpoint()
+        )
+        # get credential object from configured user and secret
+        azure_principal = cfg_factory.azure_service_principal(
+            cfg_name=azure_publishing_cfg.service_principal_cfg_name,
+        )
+        azure_principal_serialized =  gm.AzureServicePrincipalCfg(
+            tenant_id=azure_principal.tenant_id(),
+            client_id=azure_principal.client_id(),
+            client_secret=azure_principal.client_secret(),
+            subscription_id=azure_principal.subscription_id(),
+        )
+
+        shared_gallery_cfg = cfg_factory.azure_shared_gallery(
+            cfg_name=azure_publishing_cfg.gallery_cfg_name,
+        )
+        shared_gallery_cfg_serialized = gm.AzureSharedGalleryCfg(
+            resource_group_name=shared_gallery_cfg.resource_group_name(),
+            gallery_name=shared_gallery_cfg.gallery_name(),
+            location=shared_gallery_cfg.location(),
+            published_name=shared_gallery_cfg.published_name(),
+            description=shared_gallery_cfg.description(),
+            eula=shared_gallery_cfg.eula(),
+            release_note_uri=shared_gallery_cfg.release_note_uri(),
+            identifier_publisher=shared_gallery_cfg.identifier_publisher(),
+            identifier_offer=shared_gallery_cfg.identifier_offer(),
+            identifier_sku=shared_gallery_cfg.identifier_sku()
+        )
+
+        release = glci.az.publish_azure_image(
+            s3_client=s3_client,
+            release=release,
+            service_principal_cfg=azure_principal_serialized,
+            storage_account_cfg=storage_account_cfg_serialized,
+            shared_gallery_cfg=shared_gallery_cfg_serialized,
+            marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
+            hyper_v_generations=azure_publishing_cfg.hyper_v_generations,
+            azure_cloud=azure_publishing_cfg.cloud,
+            publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
+            publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace
+        )
+
+    return release
 
 
 def _publish_gcp_image(
