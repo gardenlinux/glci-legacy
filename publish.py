@@ -137,7 +137,7 @@ def _publish_azure_image(
     publishing_cfg: gm.PublishingCfg,
 ) -> str:
     azure_publishing_cfgs: list[gm.PublishingTargetAzure] = publishing_cfg.target_multi(platform=release.platform)
-    
+
     for azure_publishing_cfg in azure_publishing_cfgs:
         logger.info(f"targetting {azure_publishing_cfg.cloud}")
 

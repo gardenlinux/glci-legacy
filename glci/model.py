@@ -878,12 +878,12 @@ class PublishingCfg:
             return None
 
         raise ValueError(f'no cfg for {platform=}')
-    
+
     def target_multi(self, platform: Platform, absent_ok=False):
         target_list = [
             t for t in self.targets if t.platform == platform
         ]
-        
+
         if len(target_list) > 0:
             return target_list
 

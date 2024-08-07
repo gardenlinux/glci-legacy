@@ -812,11 +812,21 @@ def publish_azure_image(
 
     # as we publish to different Azure Clouds {public, china}, we must preserve community gallery images
     # for those clouds we are not dealing with at the moment
-    published_image = glci.model.AzurePublishedImage(
-        published_marketplace_images=release.published_image_metadata.published_marketplace_images,
-        published_gallery_images=[
+    if release.published_image_metadata and release.published_image_metadata.published_marketplace_images:
+        published_marketplace_images = release.published_image_metadata.published_marketplace_images
+    else:
+        published_marketplace_images = []
+
+    if release.published_image_metadata and release.published_image_metadata.published_gallery_images:
+        published_gallery_images = [
             cgimg for cgimg in release.published_image_metadata.published_gallery_images if cgimg.azure_cloud != azure_cloud.value
-        ],
+        ]
+    else:
+        published_gallery_images = []
+
+    published_image = glci.model.AzurePublishedImage(
+        published_marketplace_images=published_marketplace_images,
+        published_gallery_images=published_gallery_images
     )
 
     for hyper_v_generation in hyper_v_generations:
