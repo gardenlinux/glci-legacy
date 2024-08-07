@@ -336,6 +336,39 @@ class AzureHyperVGeneration(enum.Enum):
     V2 = 'V2'
 
 
+class AzureCloud(enum.Enum):
+    PUBLIC = 'public'
+    CHINA = 'china'
+
+    def authority(self):
+        authorities = {
+            AzureCloud.PUBLIC: "login.microsoftonline.com",
+            AzureCloud.CHINA: "login.chinacloudapi.cn"
+        }
+        return authorities.get(self)
+
+    def credential_scope(self):
+        credential_scopes = {
+            AzureCloud.PUBLIC: "https://management.azure.com/.default",
+            AzureCloud.CHINA: "https://management.chinacloudapi.cn/.default"
+        }
+        return credential_scopes.get(self)
+
+    def base_url(self):
+        base_urls = {
+            AzureCloud.PUBLIC: "https://management.azure.com",
+            AzureCloud.CHINA: "https://management.chinacloudapi.cn",
+        }
+        return base_urls.get(self)
+
+    def storage_endpoint(self):
+        storage_endpoints = {
+            AzureCloud.PUBLIC: "core.windows.net",
+            AzureCloud.CHINA: "core.chinacloudapi.cn",
+        }
+        return storage_endpoints.get(self)
+
+
 @dataclasses.dataclass(frozen=True)
 class AzurePublishedImage:
     published_marketplace_images: typing.List[AzureMarketplacePublishedImage]
@@ -348,8 +381,9 @@ class AzureImageGalleryPublishedImage:
     AzureImageGalleryPublishedImage holds information about images that were
     published to Azure Community Image Galleries.
     '''
-    hyper_v_generation: AzureHyperVGeneration
-    community_gallery_image_id : typing.Optional[str]
+    hyper_v_generation: str
+    community_gallery_image_id: typing.Optional[str]
+    azure_cloud: typing.Optional[str] = AzureCloud.PUBLIC.value
 
 
 @dataclasses.dataclass(frozen=True)
@@ -612,6 +646,7 @@ class AzureStorageAccountCfg:
     container_name: str
     container_name_sig: str
     access_key: str
+    endpoint_suffix: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -758,6 +793,8 @@ class PublishingTargetGCP:
 
 @dataclasses.dataclass
 class PublishingTargetAzure:
+    cloud: AzureCloud
+    buildresult_bucket: typing.Optional[str]
     gallery_cfg_name: str
     storage_account_cfg_name: str
     service_principal_cfg_name: str
@@ -841,6 +878,19 @@ class PublishingCfg:
             return None
 
         raise ValueError(f'no cfg for {platform=}')
+    
+    def target_multi(self, platform: Platform, absent_ok=False):
+        target_list = [
+            t for t in self.targets if t.platform == platform
+        ]
+        
+        if len(target_list) > 0:
+            return target_list
+
+        if absent_ok:
+            return None
+
+        raise ValueError(f'no cfgs for {platform=}')
 
     def buildresult_bucket(self, name: str):
         for bucket in self.buildresult_s3_buckets:

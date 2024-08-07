@@ -78,11 +78,13 @@ class AzureImageStore:
         self,
         storage_account_name: str,
         storage_account_key: str,
-        container_name: str
+        container_name: str,
+        storage_endpoint: str = "core.windows.net"
     ):
         self.sa_name = storage_account_name
         self.sa_key = storage_account_key
         self.container_name = container_name
+        self.storage_endpoint = storage_endpoint
 
     def copy_from_s3(
         self,
@@ -99,7 +101,7 @@ class AzureImageStore:
             f"DefaultEndpointsProtocol=https;"
             f"AccountName={self.sa_name};"
             f"AccountKey={self.sa_key};"
-            "EndpointSuffix=core.windows.net"
+            f"EndpointSuffix={self.storage_endpoint}"
         )
         image_blob = BlobClient.from_connection_string(
             conn_str=connection_string,
@@ -135,7 +137,7 @@ class AzureImageStore:
 
     def get_image_url(self, image_name: str):
         '''Generate an url and an sas token to access image in the store and return both.'''
-        result_url = f'https://{self.sa_name}.blob.core.windows.net/{self.container_name}/{image_name}'
+        result_url = f'https://{self.sa_name}.blob.{self.storage_endpoint}/{self.container_name}/{image_name}'
 
         container_sas = generate_container_sas(
             account_name=self.sa_name,
@@ -356,6 +358,7 @@ def copy_image_from_s3_to_az_storage_account(
         storage_account_name=storage_account_cfg.storage_account_name,
         storage_account_key=storage_account_cfg.access_key,
         container_name=storage_account_cfg.container_name,
+        storage_endpoint=storage_account_cfg.endpoint_suffix
     )
 
     store.copy_from_s3(
@@ -635,14 +638,12 @@ def publish_to_azure_community_gallery(
     release: glci.model.OnlineReleaseManifest,
     published_version: str,
     hyper_v_generation: glci.model.AzureHyperVGeneration,
-    credential: ClientSecretCredential,
+    cclient: ComputeManagementClient,
+    sbclient: SubscriptionClient,
     subscription_id : str,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
+    azure_cloud: glci.model.AzureCloud
 ) -> glci.model.AzureImageGalleryPublishedImage:
-
-    cclient = ComputeManagementClient(credential, subscription_id)
-    sbclient = SubscriptionClient(credential)
-
     published_name = _get_target_blob_name(release.version, hyper_v_generation)
 
     logger.info(f'Create community gallery image {published_name=} for Hyper-V generation {hyper_v_generation}')
@@ -706,6 +707,7 @@ def publish_to_azure_community_gallery(
     community_gallery_published_image = glci.model.AzureImageGalleryPublishedImage(
         hyper_v_generation=hyper_v_generation.value,
         community_gallery_image_id=unique_id,
+        azure_cloud=azure_cloud.value
     )
 
     return community_gallery_published_image
@@ -758,6 +760,7 @@ def publish_azure_image(
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
     marketplace_cfg: glci.model.AzureMarketplaceCfg,
     hyper_v_generations: list[glci.model.AzureHyperVGeneration],
+    azure_cloud: glci.model.AzureCloud,
     publish_to_community_gallery: bool = True,
     publish_to_marketplace: bool = False,
 ) -> glci.model.OnlineReleaseManifest:
@@ -765,14 +768,17 @@ def publish_azure_image(
     credential = ClientSecretCredential(
         tenant_id=service_principal_cfg.tenant_id,
         client_id=service_principal_cfg.client_id,
-        client_secret=service_principal_cfg.client_secret
+        client_secret=service_principal_cfg.client_secret,
+        authority=azure_cloud.authority(),
     )
 
     # Copy image from s3 to Azure Storage Account
     azure_release_artifact = glci.util.vm_image_artefact_for_platform('azure')
     azure_release_artifact_path = release.path_by_suffix(azure_release_artifact)
 
-    sclient = StorageManagementClient(credential, service_principal_cfg.subscription_id)
+    sclient = StorageManagementClient(credential, service_principal_cfg.subscription_id, base_url=azure_cloud.base_url(), credential_scopes=[azure_cloud.credential_scope()])
+    cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id, base_url=azure_cloud.base_url(), credential_scopes=[azure_cloud.credential_scope()])
+    sbclient = SubscriptionClient(credential, base_url=azure_cloud.base_url(), credential_scopes=[azure_cloud.credential_scope()])
 
     logger.info(f'using container name: {storage_account_cfg.container_name_sig=}')
 
@@ -791,11 +797,11 @@ def publish_azure_image(
 
     target_blob_name = _get_target_blob_name(release.version)
 
-    logger.info(f'Copying from S3 to Azure Storage Account blob: {target_blob_name=}')
+    logger.info(f'Copying from S3 (at {s3_client.meta.endpoint_url}) to Azure Storage Account blob: {target_blob_name=}')
     image_url, sas_token = copy_image_from_s3_to_az_storage_account(
         storage_account_cfg=storage_account_cfg,
         s3_client=s3_client,
-        s3_bucket_name=azure_release_artifact_path.s3_bucket_name,
+        s3_bucket_name=azure_release_artifact_path.s3_bucket_name,  # FIXME: this must be adapted to the buildresult bucket, conicidence has it that they are both the same
         s3_object_key=azure_release_artifact_path.s3_key,
         target_blob_name=target_blob_name,
     )
@@ -804,9 +810,13 @@ def publish_azure_image(
     # version _must_ (of course..) be strict semver for azure
     published_version = str(version_util.parse_to_semver(release.version))
 
+    # as we publish to different Azure Clouds {public, china}, we must preserve community gallery images
+    # for those clouds we are not dealing with at the moment
     published_image = glci.model.AzurePublishedImage(
-        published_marketplace_images=[],
-        published_gallery_images=[],
+        published_marketplace_images=release.published_image_metadata.published_marketplace_images,
+        published_gallery_images=[
+            cgimg for cgimg in release.published_image_metadata.published_gallery_images if cgimg.azure_cloud != azure_cloud.value
+        ],
     )
 
     for hyper_v_generation in hyper_v_generations:
@@ -830,9 +840,11 @@ def publish_azure_image(
                 release=release,
                 published_version=published_version,
                 hyper_v_generation=hyper_v_generation,
+                cclient=cclient,
+                sbclient=sbclient,
                 subscription_id=service_principal_cfg.subscription_id,
-                credential=credential,
                 shared_gallery_cfg=shared_gallery_cfg,
+                azure_cloud=azure_cloud
             )
             published_image.published_gallery_images.append(gallery_published_image)
 
@@ -843,14 +855,21 @@ def delete_from_azure_community_gallery(
     community_gallery_image_id: str,
     service_principal_cfg: glci.model.AzureServicePrincipalCfg,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
+    azure_cloud: glci.model.AzureCloud,
     dry_run: bool
 ):
+    if dry_run:
+        logger.warning(f"DRY RUN: would delete {community_gallery_image_id=}")
+    else:
+        logger.info(f"Deleting {community_gallery_image_id=}...")
+
     credential = ClientSecretCredential(
         tenant_id=service_principal_cfg.tenant_id,
         client_id=service_principal_cfg.client_id,
-        client_secret=service_principal_cfg.client_secret
+        client_secret=service_principal_cfg.client_secret,
+        authority=azure_cloud.authority()
     )
-    cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id)
+    cclient = ComputeManagementClient(credential, service_principal_cfg.subscription_id, base_url=azure_cloud.base_url(), credential_scopes=[azure_cloud.credential_scope()])
 
     # unfortunately, it is not possible to obtain image information from its
     # community gallery image id through the API

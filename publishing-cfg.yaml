@@ -34,6 +34,7 @@
       gcp_cfg_name: 'gardenlinux'
       gcp_bucket_name: 'gardenlinux-images'
     - platform: 'azure'
+      cloud: 'public'
       gallery_cfg_name: 'gardenlinux-community-gallery-nvme'
       storage_account_cfg_name: 'gardenlinux-community-gallery'
       service_principal_cfg_name: 'gardenlinux'
@@ -43,6 +44,15 @@
         publisher_id: 'sap'
         plan_id: 'greatest'
         notification_emails: ['thomas.buchner@sap.com','dirk.marwinski@sap.com','andre.russ@sap.com']
+      publish_to_marketplace: false
+      publish_to_community_galleries: true
+    - platform: 'azure'
+      cloud: 'china'
+      buildresult_bucket: 'replica-cn'
+      gallery_cfg_name: 'gardenlinux-community-gallery-nvme-cn'
+      storage_account_cfg_name: 'gardenlinux-community-gallery-cn'
+      service_principal_cfg_name: 'gardenlinux-cn'
+      hyper_v_generations: ['V1', 'V2']
       publish_to_marketplace: false
       publish_to_community_galleries: true
     - platform: 'openstack'
@@ -112,6 +122,7 @@
         vmware_adaptertype: paraVirtual
         vmware_disktype: streamOptimized
     - platform: 'azure'
+      cloud: 'public'
       service_principal_cfg_name: 'gardenlinux-integration-test'
       storage_account_cfg_name: 'gardenlinux-integration-test'
       gallery_cfg_name: 'gardenlinux-integration-test'
@@ -122,3 +133,4 @@
     - platform: 'gcp'
       gcp_cfg_name: 'gardenlinux-integration-test'
       gcp_bucket_name: 'gardenlinux-test-images'
+
