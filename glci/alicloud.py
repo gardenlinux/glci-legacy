@@ -269,17 +269,18 @@ class AlicloudImageMaker:
             if region_id == self.region:
                 continue
 
+            # https://www.alibabacloud.com/help/en/cloud-migration-guide-for-beginners/latest/regions-and-zones
+            # As of 2024-08-12: 'India (Mumbai) Closing Down (ap-south-1)'
+            # Australia is also shut down
+            if region_id in ['ap-south-1', 'ap-southeast-2']:
+                continue
+
             if self.regions_to_copy_to is not None:
                 if region_id in self.regions_to_copy_to:
                     region_ids.append(region_id)
             else:
                 region_ids.append(region_id)
 
-        # https://www.alibabacloud.com/help/en/cloud-migration-guide-for-beginners/latest/regions-and-zones
-        # As of 2024-08-12: 'India (Mumbai) Closing Down (ap-south-1)'
-        region_ids.remove('ap-south-1')
-        # Australia is also shut down
-        region_ids.remove('ap-southeast-2')
         return region_ids
 
     ####
