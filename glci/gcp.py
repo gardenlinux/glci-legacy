@@ -239,6 +239,7 @@ def upload_and_publish_image(
                 compute_client=compute_client,
                 gcp_project_name=gcp_project_name,
                 release=release,
+                dry_run=False
             )
             release_manifest = insert_image_to_gce_image_store(
                 compute_client=compute_client,
