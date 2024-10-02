@@ -17,6 +17,7 @@ flavour_sets:
         - arm64
         platforms:
         - aws
+        - azure
         - gcp
         modifiers:
         - [ gardener, _prod ]
