@@ -3,5 +3,5 @@
 # use `ls-manifests` command to find available version/commit-combinations
 # pipeline-job (.ci/pipeline_definitions) references named versions from this file
 - name: 'default'
-  version: '1443.10'
-  commit: '8d09830'
+  version: '1443.15'
+  commit: '5d33a69'
