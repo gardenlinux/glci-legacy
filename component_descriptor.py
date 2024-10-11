@@ -7,7 +7,9 @@ import glci.s3
 import glci.util
 
 import ccc.aws
-import ocm
+import gci.componentmodel as cm
+
+import cnudie.retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -49,37 +51,37 @@ def component_descriptor(
     commit: str,
     publishing_cfg: glci.model.PublishingCfg,
     release_manifests: list[glci.model.OnlineReleaseManifest]
-) -> ocm.ComponentDescriptor:
+) -> cm.ComponentDescriptor:
     ocm_repository = publishing_cfg.ocm.ocm_repository
 
     s3_session = ccc.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-    component_descriptor = ocm.ComponentDescriptor(
-        meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
-        component=ocm.Component(
+    component_descriptor = cm.ComponentDescriptor(
+        meta=cm.Metadata(schemaVersion=cm.SchemaVersion.V2),
+        component=cm.Component(
             name='github.com/gardenlinux/gardenlinux',
             version=version,
             repositoryContexts=[
-                ocm.OciOcmRepository(
+                cm.OciRepositoryContext(
                     baseUrl=ocm_repository,
-                    type=ocm.AccessType.OCI_REGISTRY,
+                    type=cm.AccessType.OCI_REGISTRY,
                 )
             ],
             provider='sap-se',
             sources=[
-                ocm.Source(
+                cm.ComponentSource(
                     name='gardenlinux',
-                    type=ocm.ArtefactType.GIT,
-                    access=ocm.GithubAccess(
-                        type=ocm.AccessType.GITHUB,
+                    type=cm.SourceType.GIT,
+                    access=cm.GithubAccess(
+                        type=cm.AccessType.GITHUB,
                         repoUrl='https://github.com/gardenlinux/gardenlinux',
                         ref='refs/heads/main', # TODO: determine release-tag
                         commit=commit,
                     ),
                     version=version,
                     labels=[
-                        ocm.Label(
+                        cm.Label(
                             name='cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1',
                             value={
                                 'policy': 'skip',
@@ -110,7 +112,7 @@ def virtual_machine_image_resource(
     s3_client,
 ):
     labels = [
-        ocm.Label(
+        cm.Label(
             name='gardener.cloud/gardenlinux/ci/build-metadata',
             value={
                 'modifiers': release_manifest.modifiers,
@@ -143,7 +145,7 @@ def virtual_machine_image_resource(
 
     if package_versions:
         labels.append(
-            ocm.Label(
+            cm.Label(
                 name='cloud.cnudie/dso/scanning-hints/package-versions',
                 value=package_versions,
             )
@@ -151,7 +153,7 @@ def virtual_machine_image_resource(
 
     if (published_image_metadata := release_manifest.published_image_metadata):
         labels.append(
-            ocm.Label(
+            cm.Label(
                 name='gardener.cloud/gardenlinux/ci/published-image-metadata',
                 value=published_image_metadata,
             ),
@@ -159,13 +161,13 @@ def virtual_machine_image_resource(
 
     image_file_suffix = glci.util.vm_image_artefact_for_platform(release_manifest.platform)
     image_file_path = release_manifest.path_by_suffix(image_file_suffix)
-    resource_access = ocm.S3Access(
-        type=ocm.AccessType.S3,
+    resource_access = cm.S3Access(
+        type=cm.AccessType.S3,
         bucketName=release_manifest.s3_bucket,
         objectKey=image_file_path.s3_key,
     )
 
-    return ocm.Resource(
+    return cm.Resource(
         name='gardenlinux',
         version=version,
         extraIdentity={
@@ -176,7 +178,7 @@ def virtual_machine_image_resource(
         type='virtual_machine_image',
         labels=labels,
         access=resource_access,
-        digest=ocm.DigestSpec(
+        digest=cm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',
@@ -190,7 +192,7 @@ def _image_rootfs_resource(
     version: str,
 ):
     labels = [
-        ocm.Label(
+        cm.Label(
           name='gardener.cloud/gardenlinux/ci/build-metadata',
           value={
               'modifiers': release_manifest.modifiers,
@@ -204,7 +206,7 @@ def _image_rootfs_resource(
               ],
           }
         ),
-        ocm.Label(
+        cm.Label(
             name='cloud.gardener.cnudie/responsibles',
             value=[
                 {
@@ -221,7 +223,7 @@ def _image_rootfs_resource(
 
     rootfs_file_path = release_manifest.path_by_suffix('.tar')
 
-    return ocm.Resource(
+    return cm.Resource(
         name='rootfs',
         version=version,
         extraIdentity={
@@ -231,12 +233,12 @@ def _image_rootfs_resource(
         },
         type='application/tar+vm-image-rootfs',
         labels=labels,
-        access=ocm.S3Access(
-            type=ocm.AccessType.S3,
+        access=cm.S3Access(
+            type=cm.AccessType.S3,
             bucketName=release_manifest.s3_bucket,
             objectKey=rootfs_file_path.s3_key,
         ),
-        digest=ocm.DigestSpec(
+        digest=cm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',
@@ -251,18 +253,18 @@ def release_manifest_set_resource(
 ):
     bucket_name = cicd_cfg.build.s3_bucket_name
 
-    resource_access = ocm.S3Access(
-        type=ocm.AccessType.S3,
+    resource_access = cm.S3Access(
+        type=cm.AccessType.S3,
         bucketName=bucket_name,
         objectKey=manifest_set_s3_key,
     )
 
-    return ocm.Resource(
+    return cm.Resource(
         name='release_manifest_set',
         version=effective_version,
         type='release_manifest_set',
         access=resource_access,
-        digest=ocm.DigestSpec(
+        digest=cm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',

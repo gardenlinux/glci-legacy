@@ -904,13 +904,13 @@ def publish_release_set():
     if parsed.print_component_descriptor:
         pprint.pprint(component_descriptor)
 
-    oci_ref = component_descriptor.component.current_ocm_repo.oci_ref
+    repository_context = component_descriptor.component.current_repository_ctx().baseUrl
     component_name = component_descriptor.component.name
     component_version = component_descriptor.component.version
 
     phase_logger.info('publishing component-descriptor')
     on_exist=cnudie.upload.UploadMode.OVERWRITE if cfg.ocm.overwrite_component_descriptor else cnudie.upload.UploadMode.SKIP
-    phase_logger.info(f'{oci_ref=} {component_name=} {component_version=} {on_exist=}')
+    phase_logger.info(f'{repository_context=} {component_name=} {component_version=} {on_exist=}')
 
     cnudie.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
