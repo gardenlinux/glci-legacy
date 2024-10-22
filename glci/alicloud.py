@@ -277,9 +277,11 @@ class AlicloudImageMaker:
 
         # https://www.alibabacloud.com/help/en/cloud-migration-guide-for-beginners/latest/regions-and-zones
         # As of 2024-08-12: 'India (Mumbai) Closing Down (ap-south-1)'
-        region_ids.remove('ap-south-1')
+        if 'ap-south-1' in region_ids:
+            region_ids.remove('ap-south-1')
         # Australia is also shut down
-        region_ids.remove('ap-southeast-2')
+        if 'ap-southeast-2' in region_ids:
+            region_ids.remove('ap-southeast-2')
         return region_ids
 
     ####
