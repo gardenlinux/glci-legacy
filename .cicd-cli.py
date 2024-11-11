@@ -559,7 +559,7 @@ def ls_manifests():
         for entry in matching_manifests['Contents']:
             key = entry['Key']
             _, version, commit = key.rsplit('-', 2)
-            if version == "experimental" or commit == "local":
+            if version in ["experimental", "today"] or commit == "local":
                 continue
             epoch, _ = version.split('.')
             s = glci.model.S3_Manifest(
