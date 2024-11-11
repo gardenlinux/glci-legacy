@@ -145,6 +145,7 @@ def register_image(
     result = ec2_client.register_image(
         # ImageLocation=XX, s3-url?
         Architecture=architecture,
+        ImdsSupport='v2.0', # Ensure we're using the hardened IMDS version
         BlockDeviceMappings=[
             {
                 'DeviceName': root_device_name,
