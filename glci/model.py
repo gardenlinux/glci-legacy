@@ -813,6 +813,7 @@ class PublishingTargetOpenstack:
     suffix: typing.Optional[str]
     copy_regions: typing.Optional[list[str]]
     cn_regions: typing.Optional[OpenstackChinaRegions]
+    visibility: str
     platform: Platform = 'openstack' # should not overwrite
 
 @dataclasses.dataclass
