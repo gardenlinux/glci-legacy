@@ -149,6 +149,7 @@ def register_image(
         BlockDeviceMappings=[
             {
                 'DeviceName': root_device_name,
+                'BootMode': 'uefi-preferred',
                 'Ebs': {
                     'DeleteOnTermination': True,
                     'SnapshotId': snapshot_id,
