@@ -145,11 +145,11 @@ def register_image(
     result = ec2_client.register_image(
         # ImageLocation=XX, s3-url?
         Architecture=architecture,
+        BootMode='uefi-preferred',
         ImdsSupport='v2.0', # Ensure we're using the hardened IMDS version
         BlockDeviceMappings=[
             {
                 'DeviceName': root_device_name,
-                'BootMode': 'uefi-preferred',
                 'Ebs': {
                     'DeleteOnTermination': True,
                     'SnapshotId': snapshot_id,
