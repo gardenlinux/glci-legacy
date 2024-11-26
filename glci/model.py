@@ -805,6 +805,11 @@ class PublishingTargetAzure:
     gallery_regions: typing.Optional[list[str]]
     platform: Platform = 'azure' # should not overwrite
 
+class OpenStackVisibility(enum.StrEnum):
+    public = 'public'
+    community = 'community'
+    private = 'private'
+
 
 @dataclasses.dataclass
 class PublishingTargetOpenstack:
@@ -813,6 +818,7 @@ class PublishingTargetOpenstack:
     suffix: typing.Optional[str]
     copy_regions: typing.Optional[list[str]]
     cn_regions: typing.Optional[OpenstackChinaRegions]
+    visibility: OpenStackVisibility
     platform: Platform = 'openstack' # should not overwrite
 
 @dataclasses.dataclass

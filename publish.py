@@ -310,5 +310,6 @@ def _publish_openstack_image(
         openstack_environments_cfgs=openstack_env_cfgs,
         image_properties=image_properties,
         release=release,
-        suffix=openstack_publishing_cfg.suffix
+        suffix=openstack_publishing_cfg.suffix,
+        visibility=openstack_publishing_cfg.visibility
     )
