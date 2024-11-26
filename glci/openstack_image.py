@@ -31,7 +31,7 @@ class OpenstackImageUploader:
             project_domain_name=self.openstack_env.domain,
         )
 
-    def upload_image_from_fs(self, name: str, path: str, meta: dict, timeout_seconds=86400):
+    def upload_image_from_fs(self, name: str, path: str, meta: dict, visibility: glci.model.OpenStackVisibility, timeout_seconds=86400):
         '''Upload an image from filesystem to Openstack Glance.'''
 
         conn = self._get_connection()
@@ -40,7 +40,7 @@ class OpenstackImageUploader:
             filename=path,
             disk_format='vmdk',
             container_format='bare',
-            visibility='community',
+            visibility=visibility,
             timeout=timeout_seconds,
             **meta,
         )
@@ -60,7 +60,7 @@ class OpenstackImageUploader:
                 conn.image.delete_image(image=image)
                 logger.info(f"deleted image with {image.id=} in {region=}")
 
-    def upload_image_from_url(self, name: str, url :str, meta: dict, visibility: str, timeout_seconds=86400):
+    def upload_image_from_url(self, name: str, url :str, meta: dict, visibility: glci.model.OpenStackVisibility, timeout_seconds=86400):
         '''Import an image from web url to Openstack Glance.'''
 
         logger.info(
@@ -115,7 +115,7 @@ def upload_and_publish_image(
     image_properties: dict,
     release: glci.model.OnlineReleaseManifest,
     suffix: str = None,
-    visibility: str = 'community'
+    visibility: glci.model.OpenStackVisibility = glci.model.OpenStackVisibility.community
 ) -> glci.model.OnlineReleaseManifest:
     """Import an image from S3 into OpenStack Glance."""
 
