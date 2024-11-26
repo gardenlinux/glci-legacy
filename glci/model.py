@@ -766,6 +766,11 @@ class PublishingTargetAzure:
     publish_to_community_galleries: bool
     platform: Platform = 'azure' # should not overwrite
 
+class OpenStackVisibility(enum.StrEnum):
+    public = 'public'
+    community = 'community'
+    private = 'private'
+
 
 @dataclasses.dataclass
 class PublishingTargetOpenstack:
@@ -774,6 +779,7 @@ class PublishingTargetOpenstack:
     suffix: typing.Optional[str]
     copy_regions: typing.Optional[list[str]]
     cn_regions: typing.Optional[OpenstackChinaRegions]
+    visibility: OpenStackVisibility
     platform: Platform = 'openstack' # should not overwrite
 
 @dataclasses.dataclass

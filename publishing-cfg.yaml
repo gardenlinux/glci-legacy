@@ -51,6 +51,7 @@
         region_names:
         - ap-cn-1
         buildresult_bucket: 'replica-cn'
+      visibility: community
       image_properties:
         hypervisor_type: vmware
         vmware_ostype: debian10_64Guest
@@ -65,6 +66,7 @@
         - ap-cn-1
         buildresult_bucket: 'replica-cn'
       suffix: 'baremetal'
+      visibility: public
       image_properties:
         hypervisor_type: baremetal
         os_distro: debian10_64Guest
@@ -104,6 +106,7 @@
       environment_cfg_name: 'gardenlinux'
       suffix: 'int-test'
       copy_regions: ['eu-nl-1']
+      visibility: community
       image_properties:
         hypervisor_type: vmware
         vmware_ostype: debian10_64Guest
