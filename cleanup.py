@@ -44,6 +44,8 @@ def cleanup_image(
         cleanup_function = cleanup_azure_community_gallery_images
     elif release.platform == 'openstack':
         cleanup_function = cleanup_openstack_images_by_id
+    elif release.platform == 'openstackbaremetal':
+        cleanup_function = cleanup_openstack_images_by_id
     elif release.platform == 'oci':
         cleanup_function = None
     else:
