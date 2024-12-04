@@ -15,7 +15,7 @@ import yaml
 import component_descriptor as cd
 
 import ccc.aws
-import cnudie.upload
+import ocm.upload
 import cnudie.retrieve
 import ctx
 import version as cc_version
@@ -909,10 +909,10 @@ def publish_release_set():
     component_version = component_descriptor.component.version
 
     phase_logger.info('publishing component-descriptor')
-    on_exist=cnudie.upload.UploadMode.OVERWRITE if cfg.ocm.overwrite_component_descriptor else cnudie.upload.UploadMode.SKIP
+    on_exist=ocm.upload.UploadMode.OVERWRITE if cfg.ocm.overwrite_component_descriptor else ocm.upload.UploadMode.SKIP
     phase_logger.info(f'{oci_ref=} {component_name=} {component_version=} {on_exist=}')
 
-    cnudie.upload.upload_component_descriptor(
+    ocm.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
         on_exist=on_exist
     )
