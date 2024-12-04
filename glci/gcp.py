@@ -113,6 +113,7 @@ def insert_image_to_gce_image_store(
                     'type': 'GVNIC',
                 },
             ],
+            'architecture': _get_gcp_compliant_architecture_identifier(release.architecture),
         },
     )
 
@@ -280,3 +281,15 @@ def _get_image_name_from_release_manifest(release: glci.model.OnlineReleaseManif
     ).replace(
         '_', '-'
     ).strip('-')
+
+def _get_gcp_compliant_architecture_identifier(arch: glci.model.Architecture):
+    """
+    Get proper string per architecture as documented here:
+        https://cloud.google.com/compute/docs/reference/rest/v1/images/insert
+        > The architecture of the image. Valid values are ARM64 or X86_64.
+    """
+    if arch == glci.model.Architecture.AMD64:
+        return 'X86_64'
+    if arch == glci.model.Architecture.ARM64:
+        return 'ARM64'
+    raise Exception(f"Invalid architecture {arch}")
