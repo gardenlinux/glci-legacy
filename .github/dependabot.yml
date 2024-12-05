@@ -9,3 +9,8 @@ updates:
     reviewers:
       - "gardenlinux/garden-linux-maintainers"
       - "gardenlinux/glci-maintainers"
+
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly
