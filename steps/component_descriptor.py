@@ -12,7 +12,7 @@ import glci.util
 
 import cnudie.upload
 import ctx
-import gci.componentmodel as cm
+import ocm
 import version as version_util
 
 logger = logging.getLogger(__name__)
@@ -190,9 +190,9 @@ def build_component_descriptor(
 
     if snapshot_repo_base_url:
         if base_url != snapshot_repo_base_url:
-            repo_ctx = cm.OciRepositoryContext(
+            repo_ctx = ocm.OciRepositoryContext(
                 baseUrl=snapshot_repo_base_url,
-                type=cm.AccessType.OCI_REGISTRY,
+                type=ocm.AccessType.OCI_REGISTRY,
             )
             component_descriptor.component.repositoryContexts.append(repo_ctx)
 
@@ -212,23 +212,23 @@ def oci_image_resources(
             release_manifest.platform == 'oci'
             and (meta := release_manifest.published_image_metadata)
         ):
-            yield cm.Resource(
+            yield ocm.Resource(
                 name='gardenlinux',
                 version=effective_version,
-                type=cm.ResourceType.OCI_IMAGE,
-                relation=cm.ResourceRelation.LOCAL,
-                access=cm.OciAccess(
-                    type=cm.AccessType.OCI_REGISTRY,
+                type=ocm.ResourceType.OCI_IMAGE,
+                relation=ocm.ResourceRelation.LOCAL,
+                access=ocm.OciAccess(
+                    type=ocm.AccessType.OCI_REGISTRY,
                     imageReference=meta.image_reference,
                 ),
                 labels=[
-                    cm.Label(
+                    ocm.Label(
                         name='gardener.cloud/gardenlinux/ci/build-metadata',
                         value={
                             'modifiers': release_manifest.modifiers,
                         }
                     ),
-                    cm.Label(
+                    ocm.Label(
                         name='cloud.gardener.cnudie/responsibles',
                         value=[
                             {
@@ -257,7 +257,7 @@ def virtual_machine_image_resource(
     bucket_name = cicd_cfg.build.s3_bucket_name
 
     labels = [
-        cm.Label(
+        ocm.Label(
             name='gardener.cloud/gardenlinux/ci/build-metadata',
             value={
                 'modifiers': release_manifest.modifiers,
@@ -287,7 +287,7 @@ def virtual_machine_image_resource(
 
     if package_versions:
         labels.append(
-            cm.Label(
+            ocm.Label(
                 name='cloud.cnudie/dso/scanning-hints/package-versions',
                 value=package_versions,
             )
@@ -295,19 +295,19 @@ def virtual_machine_image_resource(
 
     if (published_image_metadata := release_manifest.published_image_metadata):
         labels.append(
-            cm.Label(
+            ocm.Label(
                 name='gardener.cloud/gardenlinux/ci/published-image-metadata',
                 value=published_image_metadata,
             ),
         )
 
-    resource_access = cm.S3Access(
-        type=cm.AccessType.S3,
+    resource_access = ocm.S3Access(
+        type=ocm.AccessType.S3,
         bucketName=bucket_name,
         objectKey=image_file_path.s3_key,
     )
 
-    return cm.Resource(
+    return ocm.Resource(
         name='gardenlinux',
         version=effective_version,
         extraIdentity={
@@ -318,7 +318,7 @@ def virtual_machine_image_resource(
         type=resource_type,
         labels=labels,
         access=resource_access,
-        digest=cm.DigestSpec(
+        digest=ocm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',
@@ -332,7 +332,7 @@ def _image_rootfs_resource(
     effective_version: str,
 ):
     labels = [
-        cm.Label(
+        ocm.Label(
           name='gardener.cloud/gardenlinux/ci/build-metadata',
           value={
               'modifiers': release_manifest.modifiers,
@@ -340,7 +340,7 @@ def _image_rootfs_resource(
               'debianPackages': [p for p in _virtual_image_packages(release_manifest, cicd_cfg)],
           }
         ),
-        cm.Label(
+        ocm.Label(
             name='cloud.gardener.cnudie/responsibles',
             value=[
                 {
@@ -358,15 +358,15 @@ def _image_rootfs_resource(
     rootfs_file_path = release_manifest.path_by_suffix('.tar.xz')
     bucket_name = cicd_cfg.build.s3_bucket_name
 
-    resource_access = cm.S3Access(
-        type=cm.AccessType.S3,
+    resource_access = ocm.S3Access(
+        type=ocm.AccessType.S3,
         bucketName=bucket_name,
         objectKey=rootfs_file_path.s3_key,
     )
 
     resource_type = 'application/tar+vm-image-rootfs'
 
-    return cm.Resource(
+    return ocm.Resource(
         name='rootfs',
         version=effective_version,
         extraIdentity={
@@ -377,7 +377,7 @@ def _image_rootfs_resource(
         type=resource_type,
         labels=labels,
         access=resource_access,
-        digest=cm.DigestSpec(
+        digest=ocm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',
@@ -394,18 +394,18 @@ def release_manifest_set_resource(
 
     bucket_name = cicd_cfg.build.s3_bucket_name
 
-    resource_access = cm.S3Access(
-        type=cm.AccessType.S3,
+    resource_access = ocm.S3Access(
+        type=ocm.AccessType.S3,
         bucketName=bucket_name,
         objectKey=manifest_set_s3_key,
     )
 
-    return cm.Resource(
+    return ocm.Resource(
         name='release_manifest_set',
         version=effective_version,
         type=resource_type,
         access=resource_access,
-        digest=cm.DigestSpec(
+        digest=ocm.DigestSpec(
             hashAlgorithm='NO-DIGEST',
             normalisationAlgorithm='EXCLUDE-FROM-SIGNATURE',
             value='NO-DIGEST',
@@ -429,31 +429,31 @@ def _base_component_descriptor(
     # logical names must not contain slashes or dots
     logical_name = component_name.replace('/', '_').replace('.', '_')
 
-    base_descriptor_v2 = cm.ComponentDescriptor(
-        meta=cm.Metadata(schemaVersion=cm.SchemaVersion.V2),
-        component=cm.Component(
+    base_descriptor_v2 = ocm.ComponentDescriptor(
+        meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
+        component=ocm.Component(
             name=component_name,
             version=version,
             repositoryContexts=[
-                cm.OciRepositoryContext(
+                ocm.OciRepositoryContext(
                     baseUrl=ctx_repository_base_url,
-                    type=cm.AccessType.OCI_REGISTRY,
+                    type=ocm.AccessType.OCI_REGISTRY,
                 )
             ],
-            provider=cm.Provider.INTERNAL,
+            provider=ocm.Provider.INTERNAL,
             sources=[
-                cm.ComponentSource(
+                ocm.ComponentSource(
                     name=logical_name,
-                    type=cm.SourceType.GIT,
-                    access=cm.GithubAccess(
-                        type=cm.AccessType.GITHUB,
+                    type=ocm.SourceType.GIT,
+                    access=ocm.GithubAccess(
+                        type=ocm.AccessType.GITHUB,
                         repoUrl=component_name,
                         ref=src_ref,
                         commit=commit,
                     ),
                     version=version,
                     labels=[
-                        cm.Label(
+                        ocm.Label(
                             name='cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1',
                             value={
                                 'policy': 'skip',
