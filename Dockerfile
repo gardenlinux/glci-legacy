@@ -1,4 +1,4 @@
-FROM europe-docker.pkg.dev/gardener-project/releases/cicd/job-image:1.2286.0
+FROM europe-docker.pkg.dev/gardener-project/releases/cicd/job-image:latest
 
 RUN pip3 install --upgrade \
   'azure-common==1.1.28' \
