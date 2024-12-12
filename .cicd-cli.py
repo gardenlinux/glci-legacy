@@ -15,6 +15,7 @@ import yaml
 import component_descriptor as cd
 
 import ccc.aws
+import ccc.oci
 import ocm.upload
 import cnudie.retrieve
 import ctx
@@ -912,8 +913,11 @@ def publish_release_set():
     on_exist=ocm.upload.UploadMode.OVERWRITE if cfg.ocm.overwrite_component_descriptor else ocm.upload.UploadMode.SKIP
     phase_logger.info(f'{oci_ref=} {component_name=} {component_version=} {on_exist=}')
 
+    oci_client = ccc.oci.oci_client()
+
     ocm.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
+        oci_client=oci_client,
         on_exist=on_exist
     )
 
@@ -1007,8 +1011,11 @@ def cleanup_release_set():
         else:
             ocm_repo_base_url = parsed.ocm_repo
 
+        oci_client = ccc.oci.oci_client()
+
         component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
-            ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url)
+            ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo_base_url),
+            oci_client=oci_client
         )
 
         gardenlinux_component = component_descriptor_lookup(('github.com/gardenlinux/gardenlinux', version)).component
