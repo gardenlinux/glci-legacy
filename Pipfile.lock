@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "45e2a648805d767eca748463934071c9af63b1b39db26eef903ecb7a26bd9bd0"
+            "sha256": "5b0f85d9de3339e3e846394570fa1365265ca2bd1ad8b8538df9cd148d9273f6"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -219,12 +219,12 @@
         },
         "azure-mgmt-network": {
             "hashes": [
-                "sha256:2ee23c1f2ba75752187bd7f4c3e94ad172282cbf8153694feadc7886ef88493c",
-                "sha256:40356d348ef4838324f19a41cd80340b4f8dd4ac2f0a18a4cbd5cc95ef2974f3"
+                "sha256:8c84bffb5ec75c6e0244e58ecf07c00d5fc421d616b0cb369c6fe585af33cf87",
+                "sha256:8ddb0e9ec8f10c9c152d60fc945908d113e4591f397ea3e40b92290ec2b01658"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==28.0.0"
+            "version": "==28.1.0"
         },
         "azure-mgmt-resource": {
             "hashes": [
@@ -326,11 +326,11 @@
         },
         "certifi": {
             "hashes": [
-                "sha256:922820b53db7a7257ffbda3f597266d435245903d80737e34f8a45ff3e3230d8",
-                "sha256:bec941d2aa8195e248a60b31ff9f0558284cf01a52591ceda73ea9afffd69fd9"
+                "sha256:1275f7a45be9464efc1173084eaa30f866fe2e47d389406136d332ed4967ec56",
+                "sha256:b650d30f370c2b724812bee08008be0c4163b163ddaec3f2546c1caf65f191db"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==2024.8.30"
+            "version": "==2024.12.14"
         },
         "cffi": {
             "hashes": [
@@ -2246,11 +2246,11 @@
         },
         "urllib3": {
             "hashes": [
-                "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac",
-                "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9"
+                "sha256:1cee9ad369867bfdbbb48b7dd50374c0967a0bb7710050facf0dd6911440e3df",
+                "sha256:f8c5449b3cf0861679ce7e0503c7b44b5ec981bec0d1d3795a07f1ba96f0204d"
             ],
-            "markers": "python_version >= '3.8'",
-            "version": "==2.2.3"
+            "markers": "python_version >= '3.9'",
+            "version": "==2.3.0"
         },
         "websocket-client": {
             "hashes": [
