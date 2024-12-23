@@ -4,4 +4,4 @@
 # pipeline-job (.ci/pipeline_definitions) references named versions from this file
 - name: 'default'
   version: '1443.16'
-  commit: '1c4ea596c83024d73aa912632393371441c032e5'
+  commit: '01c6eda99c48aec92686083d8a0b23f946a3ab78'
