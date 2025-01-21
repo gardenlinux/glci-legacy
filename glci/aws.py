@@ -455,6 +455,20 @@ def attach_tags(
     ))
 
 
+def is_bucket_acl_enabled(
+    s3_client: 'botocore.client.S3',
+    bucket_name: str
+) -> bool:
+    bucket_acl = response_ok(s3_client.get_bucket_acl(Bucket=bucket_name))
+    owner_id = bucket_acl['Owner'].get('ID', None)
+    for grant in bucket_acl['Grants']:
+        if (grant['Grantee']['Type'] == "CanonicalUser" and
+            grant['Grantee'].get('ID', "") == owner_id and 
+            grant['Permission'] == "FULL_CONTROL"):
+            return False
+    return True
+
+
 def upload_and_register_gardenlinux_image(
     aws_publishing_cfg: glci.model.PublishingTargetAWS,
     publishing_cfg: glci.model.PublishingCfg,
@@ -486,11 +500,12 @@ def upload_and_register_gardenlinux_image(
         # make blob public prior to importing (snapshot-import will otherwise break, e.g. if
         # bucket is not entirely configured to be public)
         try:
-            s3_client.put_object_acl(
-                ACL='public-read',
-                Bucket=bucket_name,
-                Key=raw_image_key,
-            )
+            if is_bucket_acl_enabled(s3_client=s3_client, bucket_name=bucket_name):
+                s3_client.put_object_acl(
+                    ACL='public-read',
+                    Bucket=bucket_name,
+                    Key=raw_image_key,
+                )
         except:
             logger.warning('failed to set s3-blob to public - snapshot-import might fail')
             traceback.print_exc()
