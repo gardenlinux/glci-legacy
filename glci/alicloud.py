@@ -8,12 +8,14 @@ import time
 
 import aliyunsdkcore.client
 from aliyunsdkcore.client import AcsClient
-from aliyunsdkecs.request.v20140526 import CopyImageRequest
-from aliyunsdkecs.request.v20140526 import DeleteImageRequest
-from aliyunsdkecs.request.v20140526 import DescribeImagesRequest
-from aliyunsdkecs.request.v20140526 import DescribeRegionsRequest
-from aliyunsdkecs.request.v20140526 import ImportImageRequest
-from aliyunsdkecs.request.v20140526 import ModifyImageSharePermissionRequest
+from aliyunsdkecs.request.v20140526 import (
+    CopyImageRequest,
+    DeleteImageRequest,
+    DescribeImagesRequest,
+    DescribeRegionsRequest,
+    ImportImageRequest,
+    ModifyImageSharePermissionRequest
+)
 import oss2
 
 import glci.model
@@ -199,6 +201,12 @@ class AlicloudImageMaker:
                 "OSSObject": self.image_oss_key,
             }]
             req.set_DiskDeviceMappings(devMap)
+            
+            featureMap = {
+                "NvmeSupport": "supported"
+            }
+            req.set_Features(featureMap)
+
             logger.info(f"dev: {devMap}")
             response = parse_response(
                 self.acs_client.do_action_with_exception(req))
