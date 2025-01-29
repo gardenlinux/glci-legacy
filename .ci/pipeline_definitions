@@ -35,11 +35,80 @@ glci:
         path: 'gardenlinux/builder'
         branch: 'main'
       steps:
-        publish-gardenlinux-images:
+        publish-gardenlinux-images-aws:
           execute:
           - '../run_publish_release_set.sh'
           - '--version-name'
           - 'default'
+          - '--platform'
+          - 'aws'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-gardenlinux-images-gcp:
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--platform'
+          - 'gcp'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-gardenlinux-images-azure:
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--platform'
+          - 'azure'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-gardenlinux-images-alicloud:
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--platform'
+          - 'ali'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-gardenlinux-images-openstack:
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--platform'
+          - 'openstack'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-gardenlinux-images-openstackbaremetal:
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--platform'
+          - 'openstackbaremetal'
+          - '--phase'
+          - 'publish-images'
+          image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
+        publish-component-descriptor:
+          depends:
+          - publish-gardenlinux-images-aws
+          - publish-gardenlinux-images-gcp
+          - publish-gardenlinux-images-azure
+          - publish-gardenlinux-images-alicloud
+          - publish-gardenlinux-images-openstack
+          - publish-gardenlinux-images-openstackbaremetal
+          execute:
+          - '../run_publish_release_set.sh'
+          - '--version-name'
+          - 'default'
+          - '--phase'
+          - 'publish-component-descriptor'
           image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image:0.4.0
     update-job-image:
       repo:
