@@ -1,6 +1,7 @@
 FROM europe-docker.pkg.dev/gardener-project/releases/cicd/job-image:1.2574.0
 
 RUN pip3 install --upgrade \
+  'aliyun-python-sdk-ecs>=4.24.80' \
   'azure-common==1.1.28' \
   'azure-core==1.30.0' \
   'azure-identity==1.15.0' \
