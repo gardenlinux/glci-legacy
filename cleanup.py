@@ -18,7 +18,6 @@ import glci.az
 import glci.model as gm
 import glci.util
 
-import ccc.aws
 import ccc.gcp
 
 import ci.util
@@ -73,7 +72,7 @@ def cleanup_aws_images(
 
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg_name = aws_cfg.aws_cfg_name
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(glci.aws.session, aws_cfg=aws_cfg_name)
         glci.aws.unregister_images_by_name(
             mk_session=mk_session,
             image_name=target_image_name,
@@ -90,7 +89,7 @@ def cleanup_aws_images_by_id(
 
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg_name = aws_cfg.aws_cfg_name
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(glci.aws.session, aws_cfg=aws_cfg_name)
         glci.aws.unregister_images_by_id(
             mk_session=mk_session,
             images=release.published_image_metadata.published_aws_images,

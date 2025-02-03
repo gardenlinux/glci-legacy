@@ -11,7 +11,6 @@ import logging.config
 
 import cleanup
 
-import ccc.aws
 import ccc.gcp
 import ci.util
 
@@ -97,6 +96,7 @@ def _publish_alicloud_image(
     publishing_cfg: gm.PublishingCfg,
 ) -> gm.OnlineReleaseManifest:
     import glci.alicloud
+    import glci.aws
     aliyun_cfg = publishing_cfg.target(release.platform)
     alicloud_cfg_name = aliyun_cfg.aliyun_cfg_name
 
@@ -110,8 +110,7 @@ def _publish_alicloud_image(
         aliyun_cfg,
     )
 
-    import ccc.aws
-    s3_client = ccc.aws.session(
+    s3_client = glci.aws.session(
         publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
     ).client('s3')
     maker.cp_image_from_s3(s3_client)
@@ -144,7 +143,7 @@ def _publish_azure_image(
             logger.warning("Publishing to Azure Marketplace in Azure China is not supported, disabling it")
             azure_publishing_cfg.publish_to_marketplace = False
 
-        aws_session = ccc.aws.session(
+        aws_session = glci.aws.session(
             publishing_cfg.buildresult_bucket(azure_publishing_cfg.buildresult_bucket).aws_cfg_name
                 if azure_publishing_cfg.buildresult_bucket
                 else publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
@@ -214,7 +213,7 @@ def _publish_gcp_image(
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
     storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
-    s3_client = ccc.aws.session(
+    s3_client = glci.aws.session(
         publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
     ).client('s3')
 
@@ -235,14 +234,13 @@ def _publish_oci_image(
     publishing_cfg: gm.PublishingCfg,
     release_build: bool = True,
 ) -> gm.OnlineReleaseManifest:
-    import ccc.aws
     import glci.oci
     import ccc.oci
 
     oci_publishing_cfg = publishing_cfg.target(release.platform)
 
     oci_client = ccc.oci.oci_client()
-    s3_client = ccc.aws.session(
+    s3_client = glci.aws.session(
         publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
     ).client('s3')
 
@@ -260,7 +258,6 @@ def _publish_openstack_image(
     publishing_cfg: gm.PublishingCfg,
 ) -> gm.OnlineReleaseManifest:
     import glci.openstack_image
-    import ccc.aws
     import ci.util
 
     openstack_publishing_cfg: gm.PublishingTargetOpenstack = publishing_cfg.target(
@@ -277,12 +274,12 @@ def _publish_openstack_image(
         if openstack_publishing_cfg.cn_regions and project.region() in openstack_publishing_cfg.cn_regions.region_names:
             build_result_bucket = publishing_cfg.buildresult_bucket(openstack_publishing_cfg.cn_regions.buildresult_bucket)
             s3_bucket_access[project.region()] = (
-                ccc.aws.session(build_result_bucket.aws_cfg_name).client('s3'),
+                glci.aws.session(build_result_bucket.aws_cfg_name).client('s3'),
                 build_result_bucket.bucket_name
             )
         else:
             s3_bucket_access[project.region()] = (
-                ccc.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name).client('s3'),
+                glci.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name).client('s3'),
                 publishing_cfg.origin_buildresult_bucket.bucket_name
             )
 

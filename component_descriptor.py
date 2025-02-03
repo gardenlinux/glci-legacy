@@ -2,11 +2,11 @@ import logging
 import typing
 
 import glci
+import glci.aws
 import glci.model
 import glci.s3
 import glci.util
 
-import ccc.aws
 import ocm
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ def component_descriptor(
 ) -> ocm.ComponentDescriptor:
     ocm_repository = publishing_cfg.ocm.ocm_repository
 
-    s3_session = ccc.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name)
+    s3_session = glci.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
     component_descriptor = ocm.ComponentDescriptor(

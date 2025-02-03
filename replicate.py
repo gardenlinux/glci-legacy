@@ -8,8 +8,7 @@ import botocore.exceptions
 import boto3.s3.transfer as bt
 import botocore.client as client
 
-import ccc.aws
-
+import glci.aws
 import glci.model as gm
 import glci.util as gu
 
@@ -80,14 +79,14 @@ def check_replicated_image_blobs(
     source_bucket = publishing_cfg.origin_buildresult_bucket
     target_buckets = publishing_cfg.replica_buildresult_buckets
 
-    s3_source_session = ccc.aws.session(source_bucket.aws_cfg_name)
+    s3_source_session = glci.aws.session(source_bucket.aws_cfg_name)
     s3_source_client = s3_source_session.client('s3')
 
     all_replicates_exist = True
 
     for target_bucket in target_buckets:
         logger.info(f'Checking image blob replication from {source_bucket.aws_cfg_name=} to {target_bucket.aws_cfg_name=}')
-        s3_target_session = ccc.aws.session(target_bucket.aws_cfg_name)
+        s3_target_session = glci.aws.session(target_bucket.aws_cfg_name)
         s3_target_client = s3_target_session.client('s3')
 
         for manifest in release_manifests:

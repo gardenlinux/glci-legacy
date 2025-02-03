@@ -15,6 +15,7 @@ import botocore.exceptions
 import dacite
 import yaml
 
+import glci.aws
 import glci.model
 import paths
 
@@ -486,13 +487,8 @@ def preconfigured(
 ):
     if not cicd_cfg:
         cicd_cfg = glci.model.CicdCfg=cicd_cfg()
-    # depends on `gardener-cicd-base` package
-    try:
-        import ccc.aws
-    except ModuleNotFoundError:
-        raise RuntimeError('missing dependency: install gardener-cicd-base')
 
-    s3_session = ccc.aws.session(cicd_cfg.build.aws_cfg_name)
+    s3_session = glci.aws.session(cicd_cfg.build.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
     return functools.partial(
