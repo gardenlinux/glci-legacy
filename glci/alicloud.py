@@ -16,6 +16,8 @@ from aliyunsdkecs.request.v20140526 import (
     ImportImageRequest,
     ModifyImageSharePermissionRequest
 )
+import ctx
+import model.alicloud
 import oss2
 
 import glci.model
@@ -318,3 +320,33 @@ class AlicloudImageMaker:
 
 def parse_response(response):
     return json.loads(response)
+
+
+def _credentials(alicloud_cfg: str | model.alicloud.AlicloudConfig):
+    if isinstance(alicloud_cfg, str):
+        cfg_factory = ctx.cfg_factory()
+        alicloud_cfg = cfg_factory.alicloud(alicloud_cfg)
+
+    if not isinstance(alicloud_cfg, model.alicloud.AlicloudConfig):
+        raise ValueError(f'alicloud_cfg must be of type "model.alicloud.AlicloudConfig"')
+
+    return alicloud_cfg
+
+
+def oss_auth(alicloud_cfg: str | model.alicloud.AlicloudConfig) -> oss2.Auth:
+    alicloud_cfg = _credentials(alicloud_cfg)
+
+    return oss2.Auth(
+        access_key_id=alicloud_cfg.access_key_id(),
+        access_key_secret=alicloud_cfg.access_key_secret(),
+    )
+
+
+def acs_client(alicloud_cfg: str | model.alicloud.AlicloudConfig) -> AcsClient:
+    alicloud_cfg = _credentials(alicloud_cfg)
+
+    return AcsClient(
+        ak=alicloud_cfg.access_key_id(),
+        secret=alicloud_cfg.access_key_secret(),
+        region_id=alicloud_cfg.region(),
+    )

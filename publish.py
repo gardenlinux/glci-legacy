@@ -96,13 +96,12 @@ def _publish_alicloud_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
 ) -> gm.OnlineReleaseManifest:
-    import ccc.alicloud
     import glci.alicloud
     aliyun_cfg = publishing_cfg.target(release.platform)
     alicloud_cfg_name = aliyun_cfg.aliyun_cfg_name
 
-    oss_auth = ccc.alicloud.oss_auth(alicloud_cfg=alicloud_cfg_name)
-    acs_client = ccc.alicloud.acs_client(alicloud_cfg=alicloud_cfg_name)
+    oss_auth = glci.alicloud.oss_auth(alicloud_cfg=alicloud_cfg_name)
+    acs_client = glci.alicloud.acs_client(alicloud_cfg=alicloud_cfg_name)
 
     maker = glci.alicloud.AlicloudImageMaker(
         oss_auth,
