@@ -18,8 +18,6 @@ import glci.az
 import glci.model as gm
 import glci.util
 
-import ccc.gcp
-
 import ci.util
 
 logger = logging.getLogger(__name__)
@@ -127,8 +125,8 @@ def cleanup_gcp_images(
     gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
-    storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
-    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
+    storage_client = glci.gcp.cloud_storage_client(gcp_cfg)
+    compute_client = glci.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
 
     return glci.gcp.cleanup_image(
         storage_client=storage_client,

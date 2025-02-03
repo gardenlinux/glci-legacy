@@ -11,7 +11,6 @@ import logging.config
 
 import cleanup
 
-import ccc.gcp
 import ci.util
 
 import glci.aws
@@ -212,12 +211,12 @@ def _publish_gcp_image(
     gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
-    storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
+    storage_client = glci.gcp.cloud_storage_client(gcp_cfg)
     s3_client = glci.aws.session(
         publishing_cfg.origin_buildresult_bucket.aws_cfg_name,
     ).client('s3')
 
-    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
+    compute_client = glci.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
 
     return glci.gcp.upload_and_publish_image(
         storage_client=storage_client,
