@@ -550,7 +550,7 @@ def upload_and_register_gardenlinux_image(
                     mk_session=mk_session,
                     ami_image_id=initial_ami_id,
                     image_name=target_image_name,
-                    src_region_name=session.region_name,
+                    src_region_name=_session.region_name,
                     target_regions=region_names,
                 )
             )
@@ -567,7 +567,7 @@ def upload_and_register_gardenlinux_image(
         # dict{<region_name>: <ami_id>}
 
         # add origin image
-        image_map[session.region_name] = initial_ami_id
+        image_map[_session.region_name] = initial_ami_id
 
         published_images.extend(
             glci.model.AwsPublishedImage(
