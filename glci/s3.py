@@ -1,26 +1,17 @@
 import os
 import tempfile
 
+import glci.aws
 import glci.model
 import glci.util
-import ccc.aws
-
-
-def _s3_session(aws_cfg_name: str):
-    try:
-        import ccc.aws
-    except ModuleNotFoundError:
-        raise RuntimeError('missing dependency: install gardener-cicd-base')
-
-    return ccc.aws.session(aws_cfg_name)
 
 
 def s3_client_for_aws_cfg_name(aws_cfg_name: str):
-    return _s3_session(aws_cfg_name).client('s3')
+    return glci.aws.session(aws_cfg_name).client('s3')
 
 
 def s3_resource_for_aws_cfg_name(aws_cfg_name: str):
-    return _s3_session(aws_cfg_name).resource('s3')
+    return glci.aws.session(aws_cfg_name).resource('s3')
 
 
 def s3_client(cicd_cfg: glci.model.CicdCfg):
@@ -121,7 +112,7 @@ def _transport_release_artifact(
     # It is assumed there _is_ a bucket present in the destination with the same name as in the
     # source partition
     with tempfile.TemporaryDirectory() as tmp_dir:
-        session = ccc.aws.session(aws_cfg=source_cfg_name)
+        session = glci.aws.session(aws_cfg=source_cfg_name)
         resource = session.resource('s3')
         s3_release_file = release_manifest.path_by_suffix(
             glci.util.vm_image_artefact_for_platform(platform)
@@ -132,7 +123,7 @@ def _transport_release_artifact(
             local_dir=tmp_dir,
             s3_key=s3_release_file.s3_key,
         )
-        session = ccc.aws.session(aws_cfg=destination_cfg_name)
+        session = glci.aws.session(aws_cfg=destination_cfg_name)
         resource = session.resource('s3')
         upload_file(
             s3_resource=resource,

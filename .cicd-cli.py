@@ -14,7 +14,6 @@ import yaml
 
 import component_descriptor as cd
 
-import ccc.aws
 import ccc.oci
 import ocm.upload
 import cnudie.retrieve
@@ -28,6 +27,7 @@ ci_dir = os.path.join(own_dir, 'ci')
 
 sys.path.insert(1, ci_dir)
 
+import glci.aws   # noqa: E402
 import glci.util  # noqa: E402
 import glci.model # noqa: E402
 import paths      # noqa: E402
@@ -161,7 +161,7 @@ def _download_obj_to_file(
     s3_key: str,
     file_name: str,
 ):
-    s3_session = ccc.aws.session(cicd_cfg.build.aws_cfg_name)
+    s3_session = glci.aws.session(cicd_cfg.build.aws_cfg_name)
     s3_client = s3_session.client('s3')
     s3_client.download_file(bucket_name, s3_key, file_name)
     return 0
@@ -468,7 +468,7 @@ def replicate_blobs():
     flavour_set = _flavourset(parsed)
     flavours = tuple(flavour_set.flavours())
 
-    s3_session = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
+    s3_session = glci.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
     version = parsed.version
@@ -547,7 +547,7 @@ def ls_manifests():
             yield prefix
 
     cfg = _publishing_cfg(parsed)
-    s3_client = ccc.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
+    s3_client = glci.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
 
     manifests = list()
     for prefix in iter_manifest_prefixes():
@@ -762,7 +762,7 @@ def publish_release_set():
     if not target_manifest_buckets:
         target_manifest_buckets = (source_manifest_bucket,)
 
-    s3_session = ccc.aws.session(source_manifest_bucket.aws_cfg_name)
+    s3_session = glci.aws.session(source_manifest_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
 
@@ -1035,7 +1035,7 @@ def cleanup_release_set():
     elif len(target_manifest_buckets) > 1:
         raise RuntimeError(f"more than one target manifest buckets specified - this is currently not supported")
 
-    s3_session = ccc.aws.session(target_manifest_buckets[0].aws_cfg_name)
+    s3_session = glci.aws.session(target_manifest_buckets[0].aws_cfg_name)
     s3_client = s3_session.client('s3')
 
     flavour_set = _flavourset(parsed)

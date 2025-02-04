@@ -18,9 +18,6 @@ import glci.az
 import glci.model as gm
 import glci.util
 
-import ccc.aws
-import ccc.gcp
-
 import ci.util
 
 logger = logging.getLogger(__name__)
@@ -73,7 +70,7 @@ def cleanup_aws_images(
 
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg_name = aws_cfg.aws_cfg_name
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(glci.aws.session, aws_cfg=aws_cfg_name)
         glci.aws.unregister_images_by_name(
             mk_session=mk_session,
             image_name=target_image_name,
@@ -90,7 +87,7 @@ def cleanup_aws_images_by_id(
 
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg_name = aws_cfg.aws_cfg_name
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(glci.aws.session, aws_cfg=aws_cfg_name)
         glci.aws.unregister_images_by_id(
             mk_session=mk_session,
             images=release.published_image_metadata.published_aws_images,
@@ -102,13 +99,13 @@ def clean_alicloud_images(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
 ) -> gm.OnlineReleaseManifest:
-    import ccc.alicloud
+
     import glci.alicloud
     aliyun_cfg = publishing_cfg.target(release.platform)
     alicloud_cfg_name = aliyun_cfg.aliyun_cfg_name
 
-    oss_auth = ccc.alicloud.oss_auth(alicloud_cfg=alicloud_cfg_name)
-    acs_client = ccc.alicloud.acs_client(alicloud_cfg=alicloud_cfg_name)
+    oss_auth = glci.alicloud.oss_auth(alicloud_cfg=alicloud_cfg_name)
+    acs_client = glci.alicloud.acs_client(alicloud_cfg=alicloud_cfg_name)
 
     maker = glci.alicloud.AlicloudImageMaker(
         oss_auth,
@@ -128,8 +125,8 @@ def cleanup_gcp_images(
     gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
-    storage_client = ccc.gcp.cloud_storage_client(gcp_cfg)
-    compute_client = ccc.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
+    storage_client = glci.gcp.cloud_storage_client(gcp_cfg)
+    compute_client = glci.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
 
     return glci.gcp.cleanup_image(
         storage_client=storage_client,

@@ -8,12 +8,14 @@ import traceback
 import typing
 import functools
 
+import boto3
 import botocore.client
 from botocore.exceptions import ClientError
+import ctx
+import model.aws
 
 import glci.model
 import glci.util
-import ccc.aws
 
 
 logger = logging.getLogger(__name__)
@@ -483,10 +485,10 @@ def upload_and_register_gardenlinux_image(
         logger.info(
             f'Running AWS-Publication for aws-config {aws_cfg_name}.'
         )
-        session = ccc.aws.session(aws_cfg=aws_cfg_name)
-        mk_session = functools.partial(ccc.aws.session, aws_cfg=aws_cfg_name)
-        ec2_client = session.client('ec2')
-        s3_client = session.client('s3')
+        _session = session(aws_cfg=aws_cfg_name)
+        mk_session = functools.partial(session, aws_cfg=aws_cfg_name)
+        ec2_client = _session.client('ec2')
+        s3_client = _session.client('s3')
 
         aws_release_artifact = glci.util.vm_image_artefact_for_platform('aws')
         aws_release_artifact_path = release.path_by_suffix(aws_release_artifact)
@@ -594,3 +596,20 @@ def upload_and_register_gardenlinux_image(
         published_aws_images=tuple(published_images)
     )
     return dataclasses.replace(release, published_image_metadata=published_image_set)
+
+
+def session(
+    aws_cfg: str | model.aws.AwsProfile,
+    region_name: str=None,
+):
+    if isinstance(aws_cfg, str):
+        cfg_factory = ctx.cfg_factory()
+        aws_cfg = cfg_factory.aws(aws_cfg)
+
+    region_name = region_name or aws_cfg.region()
+
+    return boto3.Session(
+        aws_access_key_id=aws_cfg.access_key_id(),
+        aws_secret_access_key=aws_cfg.secret_access_key(),
+        region_name=region_name,
+    )
