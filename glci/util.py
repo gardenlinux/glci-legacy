@@ -2,7 +2,6 @@ import concurrent.futures
 import dataclasses
 import datetime
 import enum
-import faulthandler
 import functools
 import io
 import logging
@@ -43,7 +42,7 @@ def publishing_cfg(
         cfg = dacite.from_dict(
             data_class=PublishingCfg,
             data=cfg,
-            config=dacite.Config(cast=(enum.Enum,)),
+            config=dacite.Config(cast=[enum.Enum]),
         )
         if cfg.name == cfg_name:
             return cfg
@@ -94,17 +93,17 @@ def flavour_sets(
     with open(build_yaml) as f:
         parsed = yaml.safe_load(f)
 
-    flavour_sets = [
+    sets = [
         dacite.from_dict(
             data_class=GardenlinuxFlavourSet,
-            data=flavour_set,
+            data=fset,
             config=dacite.Config(
                 cast=[Architecture, typing.Tuple]
             )
-        ) for flavour_set in parsed['flavour_sets']
+        ) for fset in parsed['flavour_sets']
     ]
 
-    return flavour_sets
+    return sets
 
 
 def flavour_set(
@@ -119,15 +118,15 @@ def flavour_set(
 
 
 def release_manifest(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     key: str,
     absent_ok: bool=False,
-) -> glci.model.OnlineReleaseManifest:
-    '''
+) -> glci.model.OnlineReleaseManifest | None:
+    """
     retrieves and deserialises a gardenlinux release manifest from the specified s3 object
     (expects a YAML or JSON document)
-    '''
+    """
     buf = io.BytesIO()
     try:
         s3_client.download_fileobj(
@@ -170,11 +169,11 @@ def release_manifest(
 
 
 def release_manifest_set(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     manifest_key: str,
     absent_ok: bool=False,
-) -> glci.model.OnlineReleaseManifest:
+) -> glci.model.ReleaseManifestSet | None:
     buf = io.BytesIO()
     try:
         s3_client.download_fileobj(
@@ -194,7 +193,7 @@ def release_manifest_set(
     parsed['s3_key'] = manifest_key
 
     logger.debug(manifest_key)
-    manifest = dacite.from_dict(
+    manifest_set = dacite.from_dict(
         data_class=glci.model.OnlineReleaseManifestSet,
         data=parsed,
         config=dacite.Config(
@@ -207,33 +206,33 @@ def release_manifest_set(
             ],
         ),
     )
-    return manifest
+    return manifest_set
 
 
-def _json_serialisable_manifest(object: typing.Any):
+def _json_serialisable_manifest(obj: typing.Any):
     # workaround: need to convert enums to str recursively
     # Note this is not a generic implementation, sequences etc. are not converted
-    if hasattr(object, '__dict__'):
-        if not dataclasses.is_dataclass(object):
-            raise TypeError(f'cannot json-serialize non dataclass object: {object}')
+    if hasattr(obj, '__dict__'):
+        if not dataclasses.is_dataclass(obj):
+            raise TypeError(f'cannot json-serialize non dataclass object: {obj}')
         patch_args = {}
-        for attr, val in object.__dict__.items():
+        for attr, val in obj.__dict__.items():
             if isinstance(val, enum.Enum):
                 patch_args[attr] = val.value
             elif dataclasses.is_dataclass(val):
                 patch_args[attr] = _json_serialisable_manifest(val)
         if patch_args:
-            object = dataclasses.replace(object, **patch_args)
-    return object
+            obj = dataclasses.replace(obj, **patch_args)
+    return obj
 
 
 def upload_release_manifest(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     key: str,
     manifest: glci.model.ReleaseManifest,
 ):
-    manifest = _json_serialisable_manifest(object=manifest)
+    manifest = _json_serialisable_manifest(obj=manifest)
     manifest_bytes = yaml.safe_dump(dataclasses.asdict(manifest)).encode('utf-8')
     manifest_fobj = io.BytesIO(initial_bytes=manifest_bytes)
     return s3_client.upload_fileobj(
@@ -248,13 +247,13 @@ def upload_release_manifest(
 
 
 def upload_release_manifest_set(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     key: str,
     manifest_set: glci.model.ReleaseManifestSet,
 ):
-    manifests = [_json_serialisable_manifest(m) for m in manifest_set.manifests]
-    manifest_set = dataclasses.replace(manifest_set, manifests=manifests)
+    manifests = (_json_serialisable_manifest(m) for m in manifest_set.manifests)
+    manifest_set = dataclasses.replace(manifest_set, manifests=tuple(manifests))
 
     manifest_set_bytes = yaml.safe_dump(dataclasses.asdict(manifest_set)).encode('utf-8')
     manifest_set_fobj = io.BytesIO(initial_bytes=manifest_set_bytes)
@@ -271,7 +270,7 @@ def upload_release_manifest_set(
 
 
 def enumerate_releases(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     prefix: str=glci.model.ReleaseManifest.manifest_key_prefix,
 ) -> typing.Generator[glci.model.ReleaseManifest, None, None]:
@@ -312,7 +311,7 @@ def enumerate_releases(
 
 
 def find_release(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     release_identifier: glci.model.ReleaseIdentifier,
 ) -> typing.Optional[glci.model.OnlineReleaseManifest]:
@@ -344,14 +343,14 @@ def find_release(
 
 
 def find_releases(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
-    flavour_set: glci.model.GardenlinuxFlavourSet,
+    fset: glci.model.GardenlinuxFlavourSet,
     build_committish: str,
     version: str,
     gardenlinux_epoch: int,
 ) -> typing.Generator[glci.model.OnlineReleaseManifest, None, None]:
-    flavours = set(flavour_set.flavours())
+    flavours = set(fset.flavours())
 
     for flavour in flavours:
         release_identifier = glci.model.ReleaseIdentifier(
@@ -381,13 +380,13 @@ def release_set_manifest_name(
     build_type: glci.model.BuildType,
     with_timestamp: bool = False,
 ):
-    BT = glci.model.BuildType
+    bt = glci.model.BuildType
 
-    if build_type in (BT.SNAPSHOT, BT.DAILY):
+    if build_type in (bt.SNAPSHOT, bt.DAILY):
         name = f'{gardenlinux_epoch}-{build_committish[:6]}-{flavour_set_name}'
         if with_timestamp:
-            name += '-' + datetime.datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-    elif build_type is BT.RELEASE:
+            name += '-' + datetime.datetime.now(datetime.UTC).strftime('%Y%m%d-%H%M%S')
+    elif build_type is bt.RELEASE:
         name = f'{version}-{flavour_set_name}'
     else:
         raise ValueError(build_type)
@@ -396,10 +395,10 @@ def release_set_manifest_name(
 
 
 def enumerate_release_sets(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     prefix: str=glci.model.ReleaseManifestSet.release_manifest_set_prefix,
-) -> typing.Generator[glci.model.ReleaseManifest, None, None]:
+) -> typing.Generator[glci.model.ReleaseManifestSet, None, None]:
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=16)
     _release_manifest_set = functools.partial(
         release_manifest_set,
@@ -444,7 +443,7 @@ def enumerate_release_sets(
 
 
 def find_release_set(
-    s3_client: 'botocore.client.S3',
+    s3_client: botocore.client.BaseClient,
     bucket_name: str,
     flavour_set_name: str,
     build_committish: str,
@@ -483,25 +482,25 @@ def find_release_set(
 @functools.lru_cache
 def preconfigured(
     func: callable,
-    cicd_cfg=None
+    cfg=None
 ):
-    if not cicd_cfg:
-        cicd_cfg = glci.model.CicdCfg=cicd_cfg()
+    if not cfg:
+        cfg = glci.model.CicdCfg=cfg()
 
-    s3_session = glci.aws.session(cicd_cfg.build.aws_cfg_name)
+    s3_session = glci.aws.session(cfg.build.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
     return functools.partial(
         func,
         s3_client=s3_client,
-        bucket_name=cicd_cfg.build.s3_bucket_name,
+        bucket_name=cfg.build.s3_bucket_name,
     )
 
 
 class EnumValueYamlDumper(yaml.SafeDumper):
-    '''
+    """
     a yaml.SafeDumper that will dump enum objects using their values
-    '''
+    """
     def represent_data(self, data):
         if isinstance(data, enum.Enum):
             return self.represent_data(data.value)

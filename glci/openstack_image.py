@@ -14,7 +14,7 @@ import glci.util
 logger = logging.getLogger(__name__)
 
 class OpenstackImageUploader:
-    '''OpenstackImageUploader is a client to upload images to Openstack Glance.'''
+    """OpenstackImageUploader is a client to upload images to Openstack Glance."""
 
     def __init__(self, environment: glci.model.OpenstackEnvironment):
         self.openstack_env = environment
@@ -32,7 +32,7 @@ class OpenstackImageUploader:
         )
 
     def upload_image_from_fs(self, name: str, path: str, meta: dict, visibility: glci.model.OpenStackVisibility, timeout_seconds=86400):
-        '''Upload an image from filesystem to Openstack Glance.'''
+        """Upload an image from filesystem to Openstack Glance."""
 
         conn = self._get_connection()
         image = conn.image.create_image(
@@ -53,7 +53,7 @@ class OpenstackImageUploader:
     ):
         conn = self._get_connection()
         region=conn.current_location.region_name
-        if (image := conn.image.find_image(name_or_id=image_name)):
+        if image := conn.image.find_image(name_or_id=image_name):
             if dry_run:
                 logger.warning(f"DRY RUN: would delete image with {image.id=} in {region=}")
             else:
@@ -61,7 +61,7 @@ class OpenstackImageUploader:
                 logger.info(f"deleted image with {image.id=} in {region=}")
 
     def upload_image_from_url(self, name: str, url :str, meta: dict, visibility: glci.model.OpenStackVisibility, timeout_seconds=86400):
-        '''Import an image from web url to Openstack Glance.'''
+        """Import an image from web url to Openstack Glance."""
 
         logger.info(
             f'Uploading image for region {self.openstack_env.region} '
@@ -82,7 +82,7 @@ class OpenstackImageUploader:
         return image['id']
 
     def wait_image_ready(self, image_id: str, wait_interval_seconds=10, timeout=3600):
-        '''Wait until an image get in ready state.'''
+        """Wait until an image get in ready state."""
 
         conn = self._get_connection()
         start_time = datetime.now()
@@ -111,7 +111,7 @@ class OpenstackImageUploader:
 
 def upload_and_publish_image(
     s3_bucket_access,
-    openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
+    openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment, ...],
     image_properties: dict,
     release: glci.model.OnlineReleaseManifest,
     suffix: str = None,
@@ -160,11 +160,11 @@ def upload_and_publish_image(
 
 
 def delete_images_for_release(
-    openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment],
+    openstack_environments_cfgs: typing.Tuple[glci.model.OpenstackEnvironment, ...],
     release: glci.model.OnlineReleaseManifest,
     dry_run: bool,
     suffix: str = None,
-) -> glci.model.OnlineReleaseManifest:
+):
     """Delete all images created by a given release"""
 
     image_name = f"gardenlinux-{release.version}"
@@ -180,7 +180,7 @@ def delete_single_image(
     openstack_environment_cfg: glci.model.OpenstackEnvironment,
     image_id: str,
     dry_run: bool
-) -> glci.model.OnlineReleaseManifest:
+):
     """Delete a single image identified by ID in a given region"""
 
     uploader = OpenstackImageUploader(openstack_environment_cfg)

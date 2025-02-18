@@ -36,14 +36,14 @@ class Architecture(enum.Enum):
 
 
 @dataclasses.dataclass
-class ImageManifestV2_2Config:
+class ImageManifestV22Config:
     size: int
     digest: str
     mediaType: str = 'application/vnd.docker.container.image.v1+json'
 
 
 @dataclasses.dataclass
-class ImageManifestV2_2Layers:
+class ImageManifestV22Layers:
     size: int
     digest: str
     urls: typing.Optional[typing.List[str]] = None
@@ -51,10 +51,10 @@ class ImageManifestV2_2Layers:
 
 
 @dataclasses.dataclass
-class ImageManifestV2_2:
+class ImageManifestV22:
     # See https://github.com/distribution/distribution/blob/main/docs/spec/manifest-v2-2.md#image-manifest-field-descriptions
-    config: ImageManifestV2_2Config
-    layers: typing.List[ImageManifestV2_2Layers]
+    config: ImageManifestV22Config
+    layers: typing.List[ImageManifestV22Layers]
     schemaVersion: int = 2
     mediaType: typing.Optional[str] = DOCKER_IMAGE_MANIFEST_V2_S2_MEDIATYPE
 
@@ -132,7 +132,7 @@ def publish_container_image_from_tarfile(
     image_reference: str,
     architecture: Architecture,
     os: OperatingSystem = OperatingSystem.LINUX,
-    additional_tags: typing.List[str] = [],
+    additional_tags: typing.List[str] = None,
 ):
     image_reference = ou.normalise_image_reference(image_reference=image_reference)
     image_name = image_reference.rsplit(':', 1)[0]
@@ -212,13 +212,13 @@ def publish_container_image_from_tarfile(
         data=image_config,
     )
 
-    image_manifest = ImageManifestV2_2(
-        config=ImageManifestV2_2Config(
+    image_manifest = ImageManifestV22(
+        config=ImageManifestV22Config(
             digest=image_config_digest,
             size=len(image_config),
         ),
         layers=[
-            ImageManifestV2_2Layers(
+            ImageManifestV22Layers(
                 digest=compressed_digest,
                 size=length,
             ),
@@ -288,7 +288,7 @@ def publish_from_release(
     image_reference: str,
     oci_client,
     s3_client,
-    additional_tags=[],
+    additional_tags=None,
 ):
     rootfs_key = release.path_by_suffix('rootfs.tar.xz').s3_key
     rootfs_bucket_name = release.path_by_suffix('rootfs.tar.xz').s3_bucket_name

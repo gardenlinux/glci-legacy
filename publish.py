@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
-'''
+"""
 Promotes the specified build results (represented by build result manifests in S3).
 
 An example being the promotion of a build snapshot to a daily build.
-'''
+"""
 
-import logging
 import logging.config
 
 import cleanup
@@ -18,6 +17,7 @@ import glci.az
 import glci.gcp
 import glci.util
 import glci.model as gm
+from glci.model import OnlineReleaseManifest
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ def _publish_aws_image(
 def _publish_azure_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
-) -> str:
+) -> OnlineReleaseManifest:
     azure_publishing_cfgs: list[gm.PublishingTargetAzure] = publishing_cfg.target_multi(platform=release.platform)
 
     for azure_publishing_cfg in azure_publishing_cfgs:
@@ -245,7 +245,7 @@ def _publish_oci_image(
 
     return glci.oci.publish_image(
         release=release,
-        publish_cfg=oci_publishing_cfg,
+        publishing_cfg=oci_publishing_cfg,
         s3_client=s3_client,
         oci_client=oci_client,
         release_build=release_build,

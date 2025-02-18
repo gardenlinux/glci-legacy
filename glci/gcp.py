@@ -29,7 +29,6 @@ def upload_image_to_gcs_bucket(
     gcp_release_artifact = glci.util.vm_image_artefact_for_platform('gcp')
     gcp_release_artifact_path = release.path_by_suffix(gcp_release_artifact)
     raw_image_key = gcp_release_artifact_path.s3_key
-    s3_bucket_name = gcp_release_artifact_path.s3_bucket_name
 
     image_blob_name = f'gardenlinux-{release.version}.tar.gz'
     s3_bucket_name = release.s3_bucket
@@ -184,7 +183,7 @@ def delete_image_from_gce_image_store(
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
     dry_run: bool
-) -> glci.model.OnlineReleaseManifest:
+):
     image_name = _get_image_name_from_release_manifest(release)
 
     images = compute_client.images()
@@ -310,11 +309,11 @@ def _to_gcp_cfg(gcp_cfg: str):
 def credentials(gcp_cfg: str):
     gcp_cfg = _to_gcp_cfg(gcp_cfg=gcp_cfg)
 
-    credentials = google.oauth2.service_account.Credentials.from_service_account_info(
+    creds = google.oauth2.service_account.Credentials.from_service_account_info(
         gcp_cfg.service_account_key(),
     )
 
-    return credentials
+    return creds
 
 
 def authenticated_build_func(gcp_cfg: str):

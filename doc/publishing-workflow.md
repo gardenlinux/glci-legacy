@@ -36,6 +36,8 @@ The official GCP documentation for importing VM images is at <https://cloud.goog
 
 ### Azure
 
+Note: We no longer publish images to Azumre Marketplace. Images are only published to the community gallery. The code to publish to the marketplace still exists, but is untested, deprecated, and could be removed.
+
 Azure requires the `.vhd` build artefact to be imported as a [Community Gallery Image](https://learn.microsoft.com/en-us/azure/virtual-machines/share-gallery-community).
 
 The import process involves:

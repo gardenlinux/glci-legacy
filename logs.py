@@ -48,7 +48,6 @@ def get_pipeline_run(pipeline_run_name: str, namespace: str):
 
 def  _get_task_run_infos(
     pipeline_run: dict[str, any],
-    pipeline_run_name: str,
     only_failed: bool,
 ):
     # Compile all task names from the PipelineRun
@@ -88,14 +87,12 @@ def  _get_task_run_infos(
 def get_failed_excerpts(
     namespace: str,
     pipeline_run: dict[str, any],
-    pipeline_run_name: str,
     only_failed: bool,
     repo_dir: str,
     lines: int,
 ):
     task_run_infos = _get_task_run_infos(
         pipeline_run=pipeline_run,
-        pipeline_run_name=pipeline_run_name,
         only_failed=only_failed,
     )
 
@@ -137,20 +134,18 @@ def get_and_zip_logs(
     pipeline_run: dict[str, any],
     repo_dir: str,
     namespace: str,
-    pipeline_run_name: str,
     zip_file_path:str,
     tail_lines: int,
     only_failed: bool
 ) -> str:
-    '''
+    """
     retrieves all pod logs and writes them into a zip archive
 
     tail_lines: limits the amount of lines returned from each pod log
-    '''
+    """
 
     task_run_infos = _get_task_run_infos(
         pipeline_run=pipeline_run,
-        pipeline_run_name=pipeline_run_name,
         only_failed=only_failed,
     )
 

@@ -21,6 +21,7 @@ import model.alicloud
 import oss2
 
 import glci.model
+import glci.util
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -46,12 +47,12 @@ class AlicloudImageMaker:
     def __init__(
         self,
         oss2_auth: oss2.Auth,
-        acs_client: AcsClient,
+        client: AcsClient,
         release: glci.model.OnlineReleaseManifest,
         publishing_cfg: glci.model.PublishingTargetAliyun,
     ):
         self.oss2_auth = oss2_auth
-        self.acs_client = acs_client
+        self.acs_client = client
         self.release = release
         self.bucket_name =  publishing_cfg.oss_bucket_name
         self.region = publishing_cfg.aliyun_region
@@ -196,20 +197,20 @@ class AlicloudImageMaker:
             req.set_Description(self.image_name)
             req.set_Platform("Others Linux")
             req.set_ImageName(self.image_name)
-            devMap = [{
+            dev_map = [{
                 "OSSBucket": self.bucket_name,
                 "DiskImageSize": "20",
                 "Format": "qcow2",
                 "OSSObject": self.image_oss_key,
             }]
-            req.set_DiskDeviceMappings(devMap)
+            req.set_DiskDeviceMappings(dev_map)
             
-            featureMap = {
+            feature_map = {
                 "NvmeSupport": "supported"
             }
-            req.set_Features(featureMap)
+            req.set_Features(feature_map)
 
-            logger.info(f"dev: {devMap}")
+            logger.info(f"dev: {dev_map}")
             response = parse_response(
                 self.acs_client.do_action_with_exception(req))
             image_id = response.get("ImageId")

@@ -14,11 +14,14 @@ import glci.aws
 import glci.gcp
 import glci.openstack_image
 import glci.az
+import glci.s3
 
 import glci.model as gm
 import glci.util
 
 import ci.util
+
+from glci.model import AwsPublishedImageSet
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +61,7 @@ def cleanup_image(
     except:
         import traceback
         traceback.print_exc()
+        raise
 
 
 def cleanup_aws_images(
@@ -90,7 +94,7 @@ def cleanup_aws_images_by_id(
         mk_session = functools.partial(glci.aws.session, aws_cfg=aws_cfg_name)
         glci.aws.unregister_images_by_id(
             mk_session=mk_session,
-            images=release.published_image_metadata.published_aws_images,
+            images=AwsPublishedImageSet(release.published_image_metadata.published_aws_images),
             dry_run=dry_run
         )
 
@@ -284,7 +288,7 @@ def clean_release_manifest_sets(
         cicd_cfg = gm.CicdCfg=glci.util.cicd_cfg()
     enumerate_release_sets = glci.util.preconfigured(
         glci.util.enumerate_release_sets,
-        cicd_cfg=cicd_cfg,
+        cfg=cicd_cfg,
     )
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=64)
@@ -295,32 +299,32 @@ def clean_release_manifest_sets(
 
     s3_client = glci.s3.s3_client(cicd_cfg=cicd_cfg)
 
-    def purge_if_outdated(release_manifest_set: gm.ReleaseManifestSet):
+    def purge_if_outdated(release_manifest_set: gm.OnlineReleaseManifestSet):
         if len(release_manifest_set.manifests) < 1:
             logger.warning(f'{release_manifest_set.s3_key=} did not contain any manifests')
-            return (False, release_manifest_set)
+            return False, release_manifest_set
 
         first_manifest = release_manifest_set.manifests[0]
         # all timestamps should usually be pretty close to each other
 
         if first_manifest.build_ts_as_date() > oldest_allowed_date:
-            return (False, release_manifest_set)
+            return False, release_manifest_set
 
         # XXX also purge published images (if any)!
         if dry_run:
             logger.info(
                 f'Would delete {release_manifest_set.s3_bucket}/{release_manifest_set.s3_key}'
             )
-            return (False, release_manifest_set)
+            return False, release_manifest_set
         else:
             s3_client.delete_object(
                 Bucket=release_manifest_set.s3_bucket,
                 Key=release_manifest_set.s3_key,
             )
             logger.info(f'purged {release_manifest_set.s3_key=}')
-            return (True, release_manifest_set)
+            return True, release_manifest_set
 
-    for purged, manifest in executor.map(
+    for _, _ in executor.map(
         purge_if_outdated,
         enumerate_release_sets(prefix=prefix)
     ):
@@ -330,7 +334,6 @@ def clean_release_manifest_sets(
 def clean_single_release_manifests(
     max_age_days: int=14,
     cicd_cfg=None,
-    prefix: str=gm.ReleaseManifest.manifest_key_prefix,
     dry_run: bool=False,
 ):
     if not cicd_cfg:
@@ -338,7 +341,7 @@ def clean_single_release_manifests(
 
     enumerate_releases = glci.util.preconfigured(
         glci.util.enumerate_releases,
-        cicd_cfg=cicd_cfg,
+        cfg=cicd_cfg,
     )
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=64)
@@ -349,35 +352,35 @@ def clean_single_release_manifests(
 
     s3_client = glci.s3.s3_client(cicd_cfg=cicd_cfg)
 
-    def purge_if_outdated(release_manifest: gm.ReleaseManifest):
+    def purge_if_outdated(release_manifest: gm.OnlineReleaseManifest):
         if release_manifest.build_ts_as_date() < oldest_allowed_date:
             # XXX also purge published images (if any)!
             if dry_run:
                 logger.info(f'would delete {release_manifest.s3_bucket}/{release_manifest.s3_key}')
-                return (False, release_manifest)
+                return False, release_manifest
             else:
                 s3_client.delete_object(
                     Bucket=release_manifest.s3_bucket,
                     Key=release_manifest.s3_key,
                 )
                 logger.info(f'purged {release_manifest.s3_key=}')
-                return (True, release_manifest)
-        return (False, release_manifest)
+                return True, release_manifest
+        return False, release_manifest
 
-    for purged, manifest in executor.map(purge_if_outdated, enumerate_releases()):
+    for _, _ in executor.map(purge_if_outdated, enumerate_releases()):
         pass
 
 
 def _enumerate_objects_from_single_release_manifests(
     cicd_cfg=None,
     prefix: str=gm.ReleaseManifest.manifest_key_prefix,
-) -> typing.Generator[gm.S3_ReleaseFile, None, None]:
+) -> typing.Generator[gm.S3ReleaseFile, None, None]:
     if not cicd_cfg:
         cicd_cfg = gm.CicdCfg=glci.util.cicd_cfg()
 
     enumerate_releases = glci.util.preconfigured(
         glci.util.enumerate_releases,
-        cicd_cfg=cicd_cfg,
+        cfg=cicd_cfg,
     )
     for release_manifest in enumerate_releases(prefix=prefix):
         yield from release_manifest.paths
@@ -386,13 +389,13 @@ def _enumerate_objects_from_single_release_manifests(
 def _enumerate_objects_from_release_manifest_sets(
     cicd_cfg=None,
     prefix: str=gm.ReleaseManifestSet.release_manifest_set_prefix,
-) -> typing.Generator[gm.S3_ReleaseFile, None, None]:
+) -> typing.Generator[gm.S3ReleaseFile, None, None]:
     if not cicd_cfg:
         cicd_cfg = gm.CicdCfg=glci.util.cicd_cfg()
 
     enumerate_release_sets = glci.util.preconfigured(
         glci.util.enumerate_release_sets,
-        cicd_cfg=cicd_cfg,
+        cfg=cicd_cfg,
     )
 
     for release_manifest_set in enumerate_release_sets(prefix=prefix):

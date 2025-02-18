@@ -55,7 +55,7 @@ def component_descriptor(
     s3_session = glci.aws.session(publishing_cfg.origin_buildresult_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-    component_descriptor = ocm.ComponentDescriptor(
+    descriptor = ocm.ComponentDescriptor(
         meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
         component=ocm.Component(
             name='github.com/gardenlinux/gardenlinux',
@@ -101,7 +101,7 @@ def component_descriptor(
         ),
     )
 
-    return component_descriptor
+    return descriptor
 
 
 def virtual_machine_image_resource(
@@ -149,7 +149,7 @@ def virtual_machine_image_resource(
             )
         )
 
-    if (published_image_metadata := release_manifest.published_image_metadata):
+    if published_image_metadata := release_manifest.published_image_metadata:
         labels.append(
             ocm.Label(
                 name='gardener.cloud/gardenlinux/ci/published-image-metadata',

@@ -2,6 +2,7 @@ import dataclasses
 from datetime import (
     datetime,
     timedelta,
+    UTC,
 )
 from enum import Enum
 import logging
@@ -17,6 +18,7 @@ from azure.storage.blob import (
 )
 
 import glci.model
+import glci.util
 import version as version_util
 
 # For Shared Image Gallery:
@@ -55,6 +57,9 @@ logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(l
 
 
 '''
+Note: We no longer publish to Azure Marketplace. Instead we only publish to the community
+gallery. The code to publish to the marketplace is deprecated and could be removed.
+
 The publishing process for an image to the Azure Marketplace consist of
 two sequences of steps.
 
@@ -74,7 +79,7 @@ It need to be called multiple times until the entire process has been completed.
 
 
 class AzureImageStore:
-    '''Azure Image Store backed by an container in an Azure Storage Account.'''
+    """Azure Image Store backed by an container in an Azure Storage Account."""
 
     def __init__(
         self,
@@ -95,10 +100,10 @@ class AzureImageStore:
         s3_object_key: str,
         target_blob_name: str
     ):
-        '''Copy an object from Amazon S3 to an Azure Storage Account
+        """Copy an object from Amazon S3 to an Azure Storage Account
 
         This will overwrite the contents of the target file if it already exists.
-        '''
+        """
         connection_string = (
             f"DefaultEndpointsProtocol=https;"
             f"AccountName={self.sa_name};"
@@ -138,7 +143,7 @@ class AzureImageStore:
             offset += actual_cp_bytes
 
     def get_image_url(self, image_name: str):
-        '''Generate an url and an sas token to access image in the store and return both.'''
+        """Generate an url and an sas token to access image in the store and return both."""
         result_url = f'https://{self.sa_name}.blob.{self.storage_endpoint}/{self.container_name}/{image_name}'
 
         container_sas = generate_container_sas(
@@ -146,8 +151,8 @@ class AzureImageStore:
             account_key=self.sa_key,
             container_name=self.container_name,
             permission=ContainerSasPermissions(read=True, list=True),
-            start=datetime.utcnow() - timedelta(days=1),
-            expiry=datetime.utcnow() + timedelta(days=30)
+            start=datetime.now(UTC) - timedelta(days=1),
+            expiry=datetime.now(UTC) + timedelta(days=30)
         )
         return result_url, container_sas
 
@@ -165,7 +170,7 @@ class AzmpTransportDest(Enum):
     PROD = "production"
 
 class AzureMarketplaceClient:
-    '''Azure Marketplace Client is a client to interact with the Azure Marketplace.'''
+    """Azure Marketplace Client is a client to interact with the Azure Marketplace."""
 
     marketplace_baseurl = "https://cloudpartner.azure.com/api/publishers"
 
@@ -175,12 +180,16 @@ class AzureMarketplaceClient:
             authority=f"https://login.microsoftonline.com/{spn_tenant_id}",
             client_credential=spn_client_secret
         )
-        token = app_client.acquire_token_for_client(scopes="https://cloudpartner.azure.com/.default")
+        token = app_client.acquire_token_for_client(scopes=["https://cloudpartner.azure.com/.default"])
         if 'error' in token:
             raise RuntimeError("Could not fetch token for Azure Marketplace client", token['error_description'])
         self.token = token['access_token']
 
-    def _request(self, url: str, method='GET', headers={}, params={}, **kwargs):
+    def _request(self, url: str, method='GET', headers=None, params=None, **kwargs):
+        if params is None:
+            params = {}
+        if headers is None:
+            headers = {}
         if 'Authorization' not in headers:
             headers['Authorization'] = f"Bearer {self.token}"
         if 'Content-Type' not in headers:
@@ -200,7 +209,8 @@ class AzureMarketplaceClient:
     def _api_url(self, *parts):
         return '/'.join(p for p in (self.marketplace_baseurl, *parts))
 
-    def _raise_for_status(self, response, message=""):
+    @staticmethod
+    def _raise_for_status(response, message=""):
         if response.ok:
             return
         if response.status_code == 409:
@@ -211,7 +221,7 @@ class AzureMarketplaceClient:
         raise RuntimeError(f"HTTP call to {response.url} failed. statuscode={response.status_code}")
 
     def fetch_offer(self, publisher_id: str, offer_id: str):
-        '''Fetch an offer from Azure marketplace.'''
+        """Fetch an offer from Azure marketplace."""
 
         response = self._request(url=self._api_url(publisher_id, "offers", offer_id))
         self._raise_for_status(
@@ -222,7 +232,7 @@ class AzureMarketplaceClient:
         return offer_spec
 
     def update_offer(self, publisher_id: str, offer_id: str, spec: dict):
-        '''Update an offer with a give spec.'''
+        """Update an offer with a give spec."""
 
         response = self._request(
             url=self._api_url(publisher_id, "offers", offer_id),
@@ -236,7 +246,7 @@ class AzureMarketplaceClient:
         )
 
     def publish_offer(self, publisher_id: str, offer_id: str, notification_mails=()):
-        '''Trigger (re-)publishing of an offer.'''
+        """Trigger (re-)publishing of an offer."""
 
         data = {
             "metadata": {
@@ -254,7 +264,7 @@ class AzureMarketplaceClient:
         )
 
     def fetch_ongoing_operation_id(self, publisher_id: str, offer_id: str, transport_dest: AzmpTransportDest):
-        '''Fetches the id of an ongoing Azure Marketplace transport operation to a certain transport destination.'''
+        """Fetches the id of an ongoing Azure Marketplace transport operation to a certain transport destination."""
 
         response = self._request(url=self._api_url(publisher_id, "offers", offer_id, "submissions"))
         self._raise_for_status(
@@ -269,7 +279,7 @@ class AzureMarketplaceClient:
         return "undefined"
 
     def fetch_operation_state(self, publisher_id: str, offer_id: str, operation_id: str):
-        '''Fetches the state of a given Azure Marketplace transport operation.'''
+        """Fetches the state of a given Azure Marketplace transport operation."""
 
         response = self._request(url=self._api_url(publisher_id, "offers", offer_id, "operations", operation_id))
         self._raise_for_status(
@@ -280,7 +290,7 @@ class AzureMarketplaceClient:
         return AzmpOperationState(operation['status'])
 
     def go_live(self, publisher_id: str, offer_id: str):
-        '''Trigger a go live operation to transport an Azure Marketplace offer to production.'''
+        """Trigger a go live operation to transport an Azure Marketplace offer to production."""
 
         response = self._request(
             method='POST',
@@ -308,12 +318,12 @@ def add_image_version_to_plan(
     image_version: str,
     image_url: str
 ):
-    '''
+    """
     Add a new image version to a given plan and return a modified offer spec.
 
     The offer spec needs to be fetched upfront from the Azure Marketplace.
     The modified offer spec needs to be pushed to the Azure Marketplace.
-    '''
+    """
 
     plan_spec = _find_plan_spec(spec, plan_id)
     plan_spec["microsoft-azure-virtualmachines.vmImages"][image_version] = {
@@ -323,13 +333,13 @@ def add_image_version_to_plan(
     return spec
 
 
-def remove_image_version_from_plan(spec: dict, plan_id: str, image_version: str, image_url: str):
-    '''
+def remove_image_version_from_plan(spec: dict, plan_id: str, image_version: str):
+    """
     Remove an image version from a given plan and return a modified offer spec.
 
     The offer spec needs to be fetched upfront from the Azure Marketplace.
     The modified offer spec needs to be pushed to the Azure Marketplace.
-    '''
+    """
 
     plan_spec = _find_plan_spec(spec, plan_id)
     del plan_spec["microsoft-azure-virtualmachines.vmImages"][image_version]
@@ -347,9 +357,9 @@ def copy_image_from_s3_to_az_storage_account(
     target_blob_name: str,
     s3_client,
 ):
-    ''' copy object from s3 to storage account and return the generated access url including SAS token
+    """ copy object from s3 to storage account and return the generated access url including SAS token
     for the blob
-    '''
+    """
     if not target_blob_name.endswith('.vhd'):
         logger.warning(
             f"Destination image name '{target_blob_name}' does not end with '.vhd'! Resulting blob will "
@@ -454,7 +464,7 @@ def _create_shared_image(
     image_version: str,
     hyper_v_generation: glci.model.AzureHyperVGeneration,
     source_id: str,
-    gallery_regions: list[str],
+    gallery_regions: list[str] | None,
     architecture: glci.model.Architecture
 ) -> CommunityGalleryImageVersion:
     image_definition_name=_append_hyper_v_generation_and_architecture(image_name, hyper_v_generation, architecture)
@@ -464,14 +474,14 @@ def _create_shared_image(
     # and existing definitions will not be touched
     logger.info(f'Creating gallery image definition {image_definition_name=}...')
     try:
-        result = cclient.gallery_images.get(
+        gallery_image = cclient.gallery_images.get(
             resource_group_name=resource_group_name,
             gallery_name=gallery_name,
             gallery_image_name=image_definition_name
         )
-        logger.info(f'Gallery image definition {result.name} for generation {result.hyper_v_generation} on {result.architecture} already exists.')
+        logger.info(f'Gallery image definition {gallery_image.name} for generation {gallery_image.hyper_v_generation} on {gallery_image.architecture} already exists.')
     except ResourceNotFoundError:
-        result = cclient.gallery_images.begin_create_or_update(
+        poller = cclient.gallery_images.begin_create_or_update(
             resource_group_name=resource_group_name,
             gallery_name=gallery_name,
             gallery_image_name=image_definition_name,
@@ -496,7 +506,7 @@ def _create_shared_image(
             )
         )
         logger.info('...waiting for asynchronous operation to complete')
-        result = result.result()
+        poller.wait()
 
     regions = {
         l.name
@@ -514,7 +524,7 @@ def _create_shared_image(
     logger.info(f"gallery {regions=}")
 
     logger.info(f'Creating gallery image version {image_version=}')
-    result: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
+    poller: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
         resource_group_name=resource_group_name,
         gallery_name=gallery_name,
         gallery_image_name=image_definition_name,
@@ -544,7 +554,7 @@ def _create_shared_image(
         )
     )
     logger.info('...waiting for asynchronous operation to complete')
-    image_version: GalleryImageVersion = result.result()
+    image_version: GalleryImageVersion = poller.result()
 
     # The creation above resulted in a GalleryImageVersion, which seems to be a supertype of both
     # Community Gallery images and Shared Gallery images and thus lacks information we need later.
@@ -664,7 +674,7 @@ def publish_to_azure_marketplace(
     hyper_v_generation: glci.model.AzureHyperVGeneration,
     service_principal_cfg: glci.model.AzureServicePrincipalCfg,
     marketplace_cfg: glci.model.AzureMarketplaceCfg,
-) -> glci.model.AzureMarketplacePublishedImage:
+) -> glci.model.AzureMarketplacePublishedImage | None:
     # for now, we only support Hyper-V generation V1 in Marketplace
     if hyper_v_generation != glci.model.AzureHyperVGeneration.V1:
         logger.warning(f"Publishing {hyper_v_generation} images to Azure Marketplace is currently not supported.")
@@ -788,7 +798,7 @@ def publish_azure_image(
                 service_principal_cfg=service_principal_cfg,
                 marketplace_cfg=marketplace_cfg,
             )
-            if marketplace_published_image != None:
+            if marketplace_published_image is not None:
                 published_image.published_marketplace_images.append(marketplace_published_image)
 
         if publish_to_community_gallery:
@@ -883,7 +893,7 @@ def delete_from_azure_community_gallery(
             gallery_image_version_name=image_version
         )
         logger.info('...waiting for asynchronous operation to complete')
-        result = result.result()
+        result.wait()
         
         logger.info(f"Deleting image VHD {image_vhd_name} in resource group {image_vhd_resource_group}...")
         result = cclient.images.begin_delete(
@@ -891,7 +901,7 @@ def delete_from_azure_community_gallery(
             image_name=image_vhd_name
         )
         logger.info('...waiting for asynchronous operation to complete')
-        result = result.result()
+        result.wait()
 
     # check how many image versions are present in this image definition
     # if none, that delete the image definition
@@ -913,7 +923,7 @@ def delete_from_azure_community_gallery(
                 gallery_image_name=image_definition
             )
             logger.info('...waiting for asynchronous operation to complete')
-            result = result.result()
+            result.wait()
     else:
         logger.warning(f"{image_definition=} still contains {image_version_count} image versions - keeping definition")
 
