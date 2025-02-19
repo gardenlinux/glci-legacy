@@ -18,10 +18,6 @@ def s3_client(cicd_cfg: glci.model.CicdCfg):
     return s3_client_for_aws_cfg_name(cicd_cfg.build.aws_cfg_name)
 
 
-def s3_resource(cicd_cfg: glci.model.CicdCfg):
-    return s3_resource_for_aws_cfg_name(cicd_cfg.build.aws_cfg_name)
-
-
 def upload_dir(
     s3_resource,
     bucket_name: str,
