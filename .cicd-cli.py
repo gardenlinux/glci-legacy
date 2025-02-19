@@ -376,19 +376,19 @@ def ls_manifests():
         key_prefix = glci.model.ReleaseIdentifier.manifest_key_prefix
         version_prefix = parsed.version_prefix
 
-        for fl in flavours:
+        for f_ in flavours:
             cname = glci.model.canonical_name(
-                platform=fl.platform,
-                mods=fl.modifiers,
-                architecture=fl.architecture,
+                platform=f_.platform,
+                mods=f_.modifiers,
+                architecture=f_.architecture,
                 version=version,
             )
-            pref = f'{key_prefix}/{cname}'
+            prefix_ = f'{key_prefix}/{cname}'
 
             if version_prefix:
-                pref = f'{pref}-{version_prefix}'
+                prefix_ = f'{prefix_}-{version_prefix}'
 
-            yield pref
+            yield prefix_
 
     cfg = _publishing_cfg(parsed)
     s3_client = glci.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
@@ -420,13 +420,13 @@ def ls_manifests():
     if parsed.print == 'greatest':
         m = manifests.pop()
         if parsed.yaml:
-            ver = glci.model.S3ManifestVersion(
+            version = glci.model.S3ManifestVersion(
                 epoch=m.epoch,
                 version=m.version,
                 committish=m.committish
             )
             with open(parsed.yaml[0], "w") as f:
-                f.write(yaml.safe_dump(dataclasses.asdict(ver)))
+                f.write(yaml.safe_dump(dataclasses.asdict(version)))
         else:
             print(f"{m.version} {m.committish}")
     else:
@@ -541,9 +541,9 @@ def publish_release_set():
             commit = publish_version.commit
     else:
         with open(parsed.version_file[0]) as f:
-            input_ = yaml.safe_load(f)
-            version = input_['version']
-            commit = input_['committish']
+            parsed = yaml.safe_load(f)
+            version = parsed['version']
+            commit = parsed['committish']
 
     cfg = _publishing_cfg(parsed)
 
