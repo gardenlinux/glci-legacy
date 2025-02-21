@@ -70,7 +70,7 @@ def validate_publishing_configuration(
     cfg: gm.PublishingCfg
 ):
     if release.platform == 'azure':
-        validation_function = glci.az.validate_azure_publishing_config
+        validation_function = None
     elif release.platform == 'ali':
         validation_function = None
     elif release.platform == 'aws':
@@ -138,10 +138,6 @@ def _publish_azure_image(
     for azure_publishing_cfg in azure_publishing_cfgs:
         logger.info(f"targetting {azure_publishing_cfg.cloud}")
 
-        if azure_publishing_cfg.cloud == gm.AzureCloud.CHINA and azure_publishing_cfg.publish_to_marketplace:
-            logger.warning("Publishing to Azure Marketplace in Azure China is not supported, disabling it")
-            azure_publishing_cfg.publish_to_marketplace = False
-
         aws_session = glci.aws.session(
             publishing_cfg.buildresult_bucket(azure_publishing_cfg.buildresult_bucket).aws_cfg_name
                 if azure_publishing_cfg.buildresult_bucket
@@ -194,11 +190,8 @@ def _publish_azure_image(
             service_principal_cfg=azure_principal_serialized,
             storage_account_cfg=storage_account_cfg_serialized,
             shared_gallery_cfg=shared_gallery_cfg_serialized,
-            marketplace_cfg=azure_publishing_cfg.marketplace_cfg,
             hyper_v_generations=azure_publishing_cfg.hyper_v_generations,
             azure_cloud=azure_publishing_cfg.cloud,
-            publish_to_community_gallery=azure_publishing_cfg.publish_to_community_galleries,
-            publish_to_marketplace=azure_publishing_cfg.publish_to_marketplace
         )
 
     return release

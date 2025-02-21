@@ -39,13 +39,6 @@
       storage_account_cfg_name: 'gardenlinux-community-gallery'
       service_principal_cfg_name: 'gardenlinux'
       hyper_v_generations: ['V1', 'V2']
-      marketplace_cfg:
-        offer_id: 'gardenlinux'
-        publisher_id: 'sap'
-        plan_id: 'greatest'
-        notification_emails: ['thomas.buchner@sap.com','dirk.marwinski@sap.com','andre.russ@sap.com']
-      publish_to_marketplace: false
-      publish_to_community_galleries: true
     - platform: 'azure'
       cloud: 'china'
       buildresult_bucket: 'replica-cn'
@@ -53,8 +46,6 @@
       storage_account_cfg_name: 'gardenlinux-community-gallery-cn'
       service_principal_cfg_name: 'gardenlinux-cn'
       hyper_v_generations: ['V1', 'V2']
-      publish_to_marketplace: false
-      publish_to_community_galleries: true
     - platform: 'openstack'
       environment_cfg_name: 'gardenlinux'
       cn_regions:
@@ -130,8 +121,6 @@
       storage_account_cfg_name: 'gardenlinux-integration-test'
       gallery_cfg_name: 'gardenlinux-integration-test'
       hyper_v_generations: ['V1', 'V2']
-      publish_to_marketplace: false
-      publish_to_community_galleries: true
       gallery_regions: ['northeurope', 'westeurope']
     - platform: 'gcp'
       gcp_cfg_name: 'gardenlinux-integration-test'
