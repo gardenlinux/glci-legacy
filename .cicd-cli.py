@@ -3,6 +3,8 @@
 import argparse
 import dataclasses
 import enum
+import typing
+
 import git
 import io
 import logging
@@ -17,7 +19,6 @@ import component_descriptor as cd
 import ccc.oci
 import ocm.upload
 import cnudie.retrieve
-import ctx
 import version as cc_version
 
 logger = logging.getLogger('gardenlinux-cli')
@@ -41,7 +42,7 @@ class EnumAction(argparse.Action):
     """
     def __init__(self, **kwargs):
         # Pop off the type value
-        enum_type = kwargs.pop("type", None)
+        enum_type: typing.Any = kwargs.pop("type", None)
 
         # Ensure an Enum subclass is provided
         if enum_type is None:
@@ -83,7 +84,7 @@ def clean_build_result_repository():
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help=('only print information about objects to be deleted'),
+        help='only print information about objects to be deleted',
     )
 
     parsed = parser.parse_args()
@@ -118,7 +119,7 @@ def gardenlinux_epoch():
 def gardenlinux_timestamp():
     epoch = glci.model.gardenlinux_epoch_from_workingtree()
 
-    print(glci.model.snapshot_date(gardenlinux_epoch=epoch))
+    print(glci.model.snapshot_date(epoch=epoch))
 
 
 def _gitrepo():
@@ -137,10 +138,10 @@ def  _fix_version(parsed_version: str, parsed_epoch: int):
     if argument default is used and it is semver it is likely 'today'. Use
     current day in this case.
     """
-    pattern = re.compile(r'^[\d\.]+$')
+    pattern = re.compile(r'^[\d.]+$')
     is_proper_version = pattern.match(parsed_version)
     # check if default is used from argparser
-    if parsed_version != glci.model._parse_version_from_workingtree():
+    if parsed_version != glci.model.parse_version_from_workingtree():
         if not is_proper_version:
             print(f'>>> WARNING: {parsed_version} is not a semver version! <<<')
         result = parsed_version
@@ -178,7 +179,7 @@ def _download_release_artifact(
         if not log_obj:
             print('Error: No logs attached to release manifest')
             return 1
-        elif type(log_obj) is glci.model.S3_ReleaseFile:
+        elif type(log_obj) is glci.model.S3ReleaseFile:
             s3_key = log_obj.s3_key
             s3_bucket = log_obj.s3_bucket_name
         else:
@@ -209,7 +210,7 @@ def _print_used_args(parsed_args: dict):
     for arg_key, arg_value in parsed_args.items():
         if isinstance(arg_value, enum.Enum):
             arg_value = arg_value.value
-        elif isinstance(arg_value, io.IOBase):
+        elif isinstance(arg_value, io.FileIO):
             arg_value = arg_value.name
         print(f'{arg_key} : {arg_value}')
     print('--------')
@@ -230,7 +231,7 @@ def _retrieve_argparse(parser):
         )
     parser.add_argument(
         '--version',
-        default=glci.model._parse_version_from_workingtree(),
+        default=glci.model.parse_version_from_workingtree(),
         help='Gardenlinux version number, e.g. \'318.9\', default: %(default)s',
     )
     parser.add_argument(
@@ -276,7 +277,7 @@ def retrieve_release_set():
 
     find_release_set = glci.util.preconfigured(
         func=glci.util.find_release_set,
-        cicd_cfg=glci.util.cicd_cfg(parsed.cicd_cfg),
+        cfg=glci.util.cicd_cfg(parsed.cicd_cfg),
     )
 
     release_set = find_release_set(
@@ -375,19 +376,19 @@ def ls_manifests():
         key_prefix = glci.model.ReleaseIdentifier.manifest_key_prefix
         version_prefix = parsed.version_prefix
 
-        for f in flavours:
+        for f_ in flavours:
             cname = glci.model.canonical_name(
-                platform=f.platform,
-                modifiers=f.modifiers,
-                architecture=f.architecture,
+                platform=f_.platform,
+                mods=f_.modifiers,
+                architecture=f_.architecture,
                 version=version,
             )
-            prefix = f'{key_prefix}/{cname}'
+            prefix_ = f'{key_prefix}/{cname}'
 
             if version_prefix:
-                prefix = f'{prefix}-{version_prefix}'
+                prefix_ = f'{prefix_}-{version_prefix}'
 
-            yield prefix
+            yield prefix_
 
     cfg = _publishing_cfg(parsed)
     s3_client = glci.aws.session(cfg.origin_buildresult_bucket.aws_cfg_name).client('s3')
@@ -406,7 +407,7 @@ def ls_manifests():
             if version in ["experimental", "today"] or commit == "local":
                 continue
             epoch, _ = version.split('.')
-            s = glci.model.S3_Manifest(
+            s = glci.model.S3Manifest(
                 manifest_key=key,
                 epoch=epoch,
                 version=version,
@@ -419,13 +420,13 @@ def ls_manifests():
     if parsed.print == 'greatest':
         m = manifests.pop()
         if parsed.yaml:
-            v = glci.model.S3_ManifestVersion(
+            version = glci.model.S3ManifestVersion(
                 epoch=m.epoch,
                 version=m.version,
                 committish=m.committish
             )
             with open(parsed.yaml[0], "w") as f:
-                f.write(yaml.safe_dump(dataclasses.asdict(v)))
+                f.write(yaml.safe_dump(dataclasses.asdict(version)))
         else:
             print(f"{m.version} {m.committish}")
     else:
@@ -540,9 +541,9 @@ def publish_release_set():
             commit = publish_version.commit
     else:
         with open(parsed.version_file[0]) as f:
-            input = yaml.safe_load(f)
-            version = input['version']
-            commit = input['committish']
+            parsed = yaml.safe_load(f)
+            version = parsed['version']
+            commit = parsed['committish']
 
     cfg = _publishing_cfg(parsed)
 
@@ -579,23 +580,23 @@ def publish_release_set():
     logger.info('phases to run:\n- ' + '\n- '.join(phases_to_run))
     print()
 
-    def start_phase(name):
-        logger = logging.getLogger(name)
-        logger.info(20 * '=')
-        logger.info(f'Starting Phase {name}')
-        logger.info(20 * '=')
+    def start_phase(phase_name):
+        phase_logger_ = logging.getLogger(phase_name)
+        phase_logger_.info(20 * '=')
+        phase_logger_.info(f'Starting Phase {phase_name}')
+        phase_logger_.info(20 * '=')
         print()
-        return logger
+        return phase_logger_
 
 
-    def end_phase(name):
-        logger = logging.getLogger(name)
-        logger.info(20 * '=')
-        logger.info(f'End of Phase {name}')
-        logger.info(20 * '=')
+    def end_phase(phase_name):
+        phase_logger_ = logging.getLogger(phase_name)
+        phase_logger_.info(20 * '=')
+        phase_logger_.info(f'End of Phase {phase_name}')
+        phase_logger_.info(20 * '=')
         print()
-        if (phase := parsed.phase) and phase == name:
-            logger.info(f'will stop here, as {name} was passed as final phase via ARGV')
+        if (p := parsed.phase) and p == phase_name:
+            phase_logger_.info(f'will stop here, as {phase_name} was passed as final phase via ARGV')
             exit(0)
 
     phase_logger = start_phase('sync-images')
@@ -613,7 +614,7 @@ def publish_release_set():
         glci.util.find_releases(
             s3_client=s3_client,
             bucket_name=source_manifest_bucket.bucket_name,
-            flavour_set=flavour_set,
+            fset=flavour_set,
             build_committish=commit,
             version=version,
             gardenlinux_epoch=int(version.split('.')[0]),
@@ -831,8 +832,8 @@ def cleanup_release_set():
 
     if bool(parsed.version_file):
         with open(parsed.version_file[0]) as f:
-            input = yaml.safe_load(f)
-            version = input['version']
+            input_ = yaml.safe_load(f)
+            version = input_['version']
     elif bool(parsed.version):
         version = parsed.version
     else:
@@ -886,7 +887,7 @@ def cleanup_release_set():
         glci.util.find_releases(
             s3_client=s3_client,
             bucket_name=target_manifest_buckets[0].bucket_name,
-            flavour_set=flavour_set,
+            fset=flavour_set,
             build_committish=commit,
             version=version,
             gardenlinux_epoch=int(version.split('.')[0]),

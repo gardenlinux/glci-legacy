@@ -5,7 +5,6 @@ import binascii
 import base64
 
 import botocore.exceptions
-import boto3.s3.transfer as bt
 import botocore.client as client
 
 import glci.aws

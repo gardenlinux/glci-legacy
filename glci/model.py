@@ -74,12 +74,12 @@ class BuildTarget(enum.Enum):
 
 
 class FeatureType(enum.Enum):
-    '''
+    """
     gardenlinux feature types as used in `features/*/info.yaml`
 
     Each gardenlinux flavour MUST specify exactly one platform and MAY
     specify an arbitrary amount of modifiers.
-    '''
+    """
     PLATFORM = 'platform'
     MODIFIER = 'modifier'
 
@@ -91,26 +91,26 @@ Modifier = str  # see `features/*/info.yaml` / modifiers() for allowed values
 
 @dataclasses.dataclass(frozen=True)
 class Features:
-    '''
+    """
     a FeatureDescriptor's feature cfg (currently, references to other features, only)
-    '''
+    """
     include: typing.Tuple[Modifier, ...] = tuple()
 
 
 @dataclasses.dataclass(frozen=True)
 class FeatureDescriptor:
-    '''
+    """
     A gardenlinux feature descriptor (parsed from $repo_root/features/*/info.yaml)
-    '''
+    """
     type: FeatureType
     name: str
     description: str = 'no description available'
     features: Features = None
 
     def included_feature_names(self) -> typing.Tuple[Modifier, ...]:
-        '''
+        """
         returns the tuple of feature names immediately depended-on by this feature
-        '''
+        """
         if not self.features:
             return ()
         return self.features.include
@@ -118,9 +118,9 @@ class FeatureDescriptor:
     def included_features(self,
                           transitive=True
                           ) -> typing.Generator['FeatureDescriptor', None, None]:
-        '''
+        """
         returns the tuple of features (transtively) included by this feature
-        '''
+        """
         included_features = (feature_by_name(name)
                              for name in self.included_feature_names())
 
@@ -131,18 +131,18 @@ class FeatureDescriptor:
 
 
 class Architecture(enum.Enum):
-    '''
+    """
     gardenlinux' target architectures, following Debian's naming
-    '''
+    """
     AMD64 = 'amd64'
     ARM64 = 'arm64'
 
 
 @dataclasses.dataclass(frozen=True)
 class GardenlinuxFlavour:
-    '''
+    """
     A specific flavour of gardenlinux.
-    '''
+    """
     architecture: Architecture
     platform: str
     modifiers: typing.Tuple[Modifier, ...]
@@ -167,10 +167,10 @@ class GardenlinuxFlavour:
 
     def __post_init__(self):
         # validate platform and modifiers
-        platform_names = {platform.name for platform in platforms()}
-        if not self.platform in platform_names:
+        names = {platform.name for platform in platforms()}
+        if not self.platform in names:
             raise ValueError(
-                f'unknown platform: {self.platform}. known: {platform_names}'
+                f'unknown platform: {self.platform}. known: {names}'
             )
 
         modifier_names = {modifier.name for modifier in modifiers()}
@@ -183,14 +183,14 @@ class GardenlinuxFlavour:
 
 @dataclasses.dataclass(frozen=True)
 class GardenlinuxFlavourCombination:
-    '''
+    """
     A declaration of a set of gardenlinux flavours. Deserialised from `flavours.yaml`.
 
     We intend to build a two-digit number of gardenlinux flavours (combinations
     of different architectures, platforms, and modifiers). To avoid tedious and redundant
     manual configuration, flavourset combinations are declared. Subsequently, the
     cross product of said combinations are generated.
-    '''
+    """
     architectures: typing.Tuple[Architecture, ...]
     platforms: typing.Tuple[Platform, ...]
     modifiers: typing.Tuple[typing.Tuple[Modifier, ...], ...]
@@ -198,9 +198,9 @@ class GardenlinuxFlavourCombination:
 
 @dataclasses.dataclass(frozen=True)
 class GardenlinuxFlavourSet:
-    '''
+    """
     A set of gardenlinux flavours
-    '''
+    """
     name: str
     flavour_combinations: typing.Tuple[GardenlinuxFlavourCombination, ...]
 
@@ -220,9 +220,9 @@ class GardenlinuxFlavourSet:
 
 @dataclasses.dataclass(frozen=True)
 class ReleaseFile:
-    '''
+    """
     base class for release-files
-    '''
+    """
     name: str
     suffix: str
     md5sum: typing.Optional[str]
@@ -230,21 +230,21 @@ class ReleaseFile:
 
 
 @dataclasses.dataclass(frozen=True)
-class S3_ReleaseFile(ReleaseFile):
-    '''
+class S3ReleaseFile(ReleaseFile):
+    """
     A single build result file that was (or will be) uploaded to build result persistency store
     (S3).
-    '''
+    """
     s3_key: str
     s3_bucket_name: str
 
 
 @dataclasses.dataclass(frozen=True)
 class ReleaseIdentifier:
-    '''
+    """
     a partial ReleaseManifest with all attributes required to unambiguosly identify a
     release.
-    '''
+    """
     build_committish: str
     version: str
     gardenlinux_epoch: int
@@ -252,10 +252,7 @@ class ReleaseIdentifier:
     platform: Platform
     modifiers: typing.Tuple[Modifier, ...]
 
-    def flavour(self, normalise=True) -> GardenlinuxFlavour:
-        mods = normalised_modifiers(
-            platform=self.platform, modifiers=self.modifiers)
-
+    def flavour(self) -> GardenlinuxFlavour:
         return GardenlinuxFlavour(
             architecture=self.architecture,
             platform=self.platform,
@@ -263,7 +260,7 @@ class ReleaseIdentifier:
         )
 
     def canonical_release_manifest_key_suffix(self):
-        '''
+        """
         returns the canonical release manifest key. This key is used as a means to
         unambiguously identify it, and to thus be able to calculate its name if checking
         whether or not the given gardenlinux flavour has already been built and published.
@@ -276,8 +273,8 @@ class ReleaseIdentifier:
         and <version> is the intended target release version.
 
         note that the full key should be prefixed (e.g. with manifest_key_prefix)
-        '''
-        cname = canonical_name(platform=self.platform, modifiers=self.modifiers, architecture=self.architecture, version=self.version)
+        """
+        cname = canonical_name(platform=self.platform, mods=self.modifiers, architecture=self.architecture, version=self.version)
         return f'{cname}-{self.build_committish[:8]}'
 
     def canonical_release_manifest_key(self):
@@ -377,10 +374,10 @@ class AzurePublishedImage:
 
 @dataclasses.dataclass(frozen=True)
 class AzureImageGalleryPublishedImage:
-    '''
+    """
     AzureImageGalleryPublishedImage holds information about images that were
     published to Azure Community Image Galleries.
-    '''
+    """
     hyper_v_generation: str
     community_gallery_image_id: typing.Optional[str]
     azure_cloud: typing.Optional[str] = AzureCloud.PUBLIC.value
@@ -388,7 +385,7 @@ class AzureImageGalleryPublishedImage:
 
 @dataclasses.dataclass(frozen=True)
 class AzureMarketplacePublishedImage:
-    '''
+    """
     AzureMarketplacePublishedImage hold information about the publishing process of an image
     to the Azure Marketplace.
 
@@ -401,7 +398,7 @@ class AzureMarketplacePublishedImage:
     golive_operation_id is the id of the go live/release operation of the image
     to the Azure Marketplace. At the end of this process step the image is available
     in all Azure regions for general usage.
-    '''
+    """
     hyper_v_generation: AzureHyperVGeneration
     publish_operation_id: str
     golive_operation_id: str
@@ -439,12 +436,12 @@ class ReleaseTestResult:
 
 @dataclasses.dataclass(frozen=True)
 class ReleaseManifest(ReleaseIdentifier):
-    '''
+    """
     metadata for a gardenlinux release variant that can be (or was) published to a persistency
     store, such as an S3 bucket.
-    '''
+    """
     build_timestamp: str
-    paths: typing.Tuple[S3_ReleaseFile, ...]
+    paths: typing.Tuple[S3ReleaseFile, ...]
     base_image: typing.Optional[str]
 
 
@@ -480,27 +477,25 @@ class ReleaseManifest(ReleaseIdentifier):
 
 
 def normalised_release_identifier(release_identifier: ReleaseIdentifier):
-    features = canonical_features(
+    feats = canonical_features(
         platform=release_identifier.platform,
-        modifiers=release_identifier.modifiers,
+        mods=release_identifier.modifiers,
         architecture=release_identifier.architecture.value,
         version=release_identifier.version
     )
-    modifiers = ','.join(f.name for f in features)
-
-    return dataclasses.replace(release_identifier, modifiers=modifiers)
+    return dataclasses.replace(release_identifier, modifiers=tuple(f.name for f in feats))
 
 
-def canonical_features(platform: Platform, modifiers, architecture, version) -> typing.Tuple[FeatureDescriptor]:
-    '''
+def canonical_features(platform: Platform, mods, architecture, version) -> tuple[FeatureDescriptor, ...]:
+    """
     calculates the "canonical" (/minimal) tuple of features required to unambiguosly identify
     a gardenlinux flavour. The result is returned as a (ASCII-upper-case-sorted) tuple of
     `FeatureDescriptor`, including the platform.
 
     The minimal featureset is determined by removing all transitive dependencies (which are thus
     implied by the retained features).
-    '''
-    feature_str = _garden_feat(platform=platform, modifiers=modifiers, arch=architecture, version=version, cmd='features')
+    """
+    feature_str = _garden_feat(platform=platform, mods=mods, arch=architecture, version=version, cmd='features')
 
     return tuple(
         feature_by_name(f)
@@ -510,30 +505,30 @@ def canonical_features(platform: Platform, modifiers, architecture, version) -> 
 
 def canonical_name(
     platform: Platform,
-    modifiers,
+    mods,
     version: str|None=None,
     architecture: Architecture|None=None,
 ) -> str:
-    '''Calculates the canonical name of a gardenlinux flavour.
+    """Calculates the canonical name of a gardenlinux flavour.
 
     The canonical name consists of the minimal sorted set of features in the given flavour, as
     determined by bin/garden-feat, with the platform always being the first element.
-    '''
-    cname = _garden_feat(platform=platform, modifiers=modifiers, arch=architecture.value, version=version)
+    """
+    cname = _garden_feat(platform=platform, mods=mods, arch=str(architecture.value), version=version)
 
     return cname
 
 
 @dataclasses.dataclass(frozen=True)
 class OnlineReleaseManifest(ReleaseManifest):
-    '''
+    """
     a `ReleaseManifest` that was uploaded to a S3 bucket
-    '''
+    """
     # injected iff retrieved from s3 bucket
     s3_key: str
     s3_bucket: str
     test_result: typing.Optional[ReleaseTestResult]
-    logs: typing.Optional[typing.Union[S3_ReleaseFile, str]] = None
+    logs: typing.Optional[typing.Union[S3ReleaseFile, str]] = None
             # Note Union can be removed after all old manifests have been removed
 
     def stripped_manifest(self):
@@ -557,7 +552,7 @@ class OnlineReleaseManifest(ReleaseManifest):
     def with_test_result(self,  test_result: ReleaseTestResult):
         return dataclasses.replace(self, test_result=test_result)
 
-    def with_logfile(self, log: S3_ReleaseFile):
+    def with_logfile(self, log: S3ReleaseFile):
         return dataclasses.replace(self, logs=log)
 
 
@@ -576,9 +571,9 @@ class OnlineReleaseManifestSet(ReleaseManifestSet):
     # injected iff retrieved from s3 bucket
     s3_key: str
     s3_bucket: str
-    logs: typing.Optional[typing.Tuple[S3_ReleaseFile, ...]] = None
+    logs: typing.Optional[typing.Tuple[S3ReleaseFile, ...]] = None
 
-    def with_logfiles(self, files: typing.Tuple[S3_ReleaseFile]):
+    def with_logfiles(self, files: typing.Tuple[S3ReleaseFile]):
         log_files = self.logs
         if log_files:
             log_files = log_files + files
@@ -672,7 +667,7 @@ class AzureSharedGalleryCfg:
     identifier_publisher: str
     identifier_offer: str
     identifier_sku: str
-    regions: tuple[str]
+    regions: list[str] | None
 
 @dataclasses.dataclass(frozen=True)
 class OpenstackEnvironment:
@@ -849,13 +844,13 @@ class OcmCfg:
     overwrite_component_descriptor: typing.Optional[bool]
 
 @dataclasses.dataclass
-class S3_ManifestVersion:
+class S3ManifestVersion:
     epoch: str
     version: str
     committish: str
 
 @dataclasses.dataclass
-class S3_Manifest(S3_ManifestVersion):
+class S3Manifest(S3ManifestVersion):
     manifest_key: str
 
 @dataclasses.dataclass
@@ -925,7 +920,7 @@ class PublishingCfg:
         raise RuntimeError('did not find manifest-bucket w/ role `source`')
 
     @property
-    def target_manifest_buckets(self) -> typing.Generator[BuildresultS3Bucket, None, None]:
+    def target_manifest_buckets(self) -> typing.Generator[ManifestS3Bucket, None, None]:
         for bucket in self.manifest_s3_buckets:
             if bucket.role is ManifestBucketRole.TARGET:
                 yield bucket
@@ -946,10 +941,10 @@ version_dev = 'dev'
 
 
 def gardenlinux_epoch(date: typing.Union[str, datetime.datetime] = None):
-    '''
+    """
     calculates the gardenlinux epoch for the given date (the amount of days since 2020-04-01)
     @param date: date (defaults to today); if str, must be compliant to iso-8601
-    '''
+    """
     if date is None:
         date = datetime.datetime.today()
     elif isinstance(date, str):
@@ -958,36 +953,36 @@ def gardenlinux_epoch(date: typing.Union[str, datetime.datetime] = None):
     if not isinstance(date, datetime.datetime):
         raise ValueError(date)
 
-    gardenlinux_epoch = (date - epoch_date).days + 1
+    epoch = (date - epoch_date).days + 1
 
-    if gardenlinux_epoch < 1:
+    if epoch < 1:
         raise ValueError()  # must not be older than gardenlinux' inception
-    return gardenlinux_epoch
+    return epoch
 
 
 _gl_epoch = gardenlinux_epoch  # alias for usage in snapshot_date
 
 
-def snapshot_date(gardenlinux_epoch: int = None):
-    '''
+def snapshot_date(epoch: int = None):
+    """
     calculates the debian snapshot repository timestamp from the given gardenlinux epoch in the
     format that is expected for said snapshot repository.
     @param gardenlinux_epoch: int, the gardenlinux epoch
-    '''
-    if gardenlinux_epoch is None:
-        gardenlinux_epoch = _gl_epoch()
-    gardenlinux_epoch = int(gardenlinux_epoch)
-    if gardenlinux_epoch < 1:
-        raise ValueError(gardenlinux_epoch)
+    """
+    if epoch is None:
+        epoch = _gl_epoch()
+    epoch = int(epoch)
+    if epoch < 1:
+        raise ValueError(epoch)
 
-    time_d = datetime.timedelta(days=gardenlinux_epoch - 1)
+    time_d = datetime.timedelta(days=epoch - 1)
 
     date_str = (epoch_date + time_d).strftime('%Y%m%d')
     return date_str
 
 
-def _parse_version_from_workingtree(version_file_path: str=paths.version_path) -> str:
-    '''
+def parse_version_from_workingtree(version_file_path: str=paths.version_path) -> str:
+    """
     parses the raw version as configured (defaulting to the contents of `VERSION` file)
 
     In particular, the contents of `VERSION` (a regular text file) are parsed, with the following
@@ -1002,7 +997,7 @@ def _parse_version_from_workingtree(version_file_path: str=paths.version_path) -
       - a semver-ish version (<major>.<minor>)
       - the string literal `today`
     - the afforementioned assumptions about the version are, however, not validated by this function
-    '''
+    """
     with open(version_file_path) as f:
         for line in f.readlines():
             if not (line := line.strip()) or line.startswith('#'): continue
@@ -1019,7 +1014,7 @@ def next_release_version_from_workingtree(
     epoch: str=gardenlinux_epoch(),
     version_file_path: str=paths.version_path
 ):
-    version_str = _parse_version_from_workingtree(version_file_path=version_file_path)
+    version_str = parse_version_from_workingtree(version_file_path=version_file_path)
 
     if version_str == version_today or version_str == version_dev:
         # the first release-candidate is always <gardenlinux-epoch>.0
@@ -1042,7 +1037,7 @@ def gardenlinux_epoch_from_workingtree(
     version_file_path: str=paths.version_path,
     epoch: str=gardenlinux_epoch()
 ):
-    '''
+    """
     determines the configured gardenlinux epoch from the current working tree.
 
     see `_parse_version_from_workingtree` for details about pre-parsing / comment-stripping
@@ -1053,8 +1048,8 @@ def gardenlinux_epoch_from_workingtree(
         - the parsing result is the gardenlinux epoch
       - the string literal `today`
         - in this case, the returned epoch is today's gardenlinux epoch (days since 2020-04-01)
-    '''
-    version_str = _parse_version_from_workingtree(version_file_path=version_file_path)
+    """
+    version_str = parse_version_from_workingtree(version_file_path=version_file_path)
 
     # version_str may either be a semver-ish (gardenlinux only uses two components (x.y))
     try:
@@ -1135,7 +1130,7 @@ def feature_by_name(feature_name: str):
 
 def _garden_feat(
     platform: str,
-    modifiers: typing.Tuple[str, ...],
+    mods: typing.Tuple[str, ...],
     arch: str|None,
     version: str|None,
     cmd: str = 'cname',
@@ -1143,7 +1138,7 @@ def _garden_feat(
     if not version or not arch:
         cmd = "cname_base"
 
-    all_mods = set(tuple(modifiers) + (platform,))
+    all_mods = set(tuple(mods) + (platform,))
     feature_binary = os.path.abspath(os.path.join(paths.gardenlinux_builder_dir, 'builder', 'parse_features'))
     feature_args=[
             feature_binary,
@@ -1159,7 +1154,6 @@ def _garden_feat(
 
     feature_args.append(cmd)
 
-    parse_features_proc = None
     try:
         parse_features_proc = subprocess.run(
             args=feature_args,
