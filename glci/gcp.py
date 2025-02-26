@@ -94,7 +94,7 @@ def insert_image_to_gce_image_store(
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
 ) -> glci.model.OnlineReleaseManifest:
-    image_name = _get_image_name_from_release_manifest(release)
+    image_name = _get_image_name_from_release_manifest(release, hashed=True)
 
     images = compute_client.images()
 
@@ -184,7 +184,7 @@ def delete_image_from_gce_image_store(
     release: glci.model.OnlineReleaseManifest,
     dry_run: bool
 ):
-    image_name = _get_image_name_from_release_manifest(release)
+    image_name = _get_image_name_from_release_manifest(release, hashed=True)
 
     images = compute_client.images()
 
@@ -252,6 +252,8 @@ def upload_and_publish_image(
                 gcp_project_name=gcp_project_name,
                 release=release,
             )
+        else:
+            raise
 
     return release_manifest
 
@@ -279,8 +281,8 @@ def cleanup_image(
     )
 
 
-def _get_image_name_from_release_manifest(release: glci.model.OnlineReleaseManifest) -> str:
-    return f'gardenlinux-{release.canonical_release_manifest_key_suffix()}'.replace(
+def _get_image_name_from_release_manifest(release: glci.model.OnlineReleaseManifest, hashed) -> str:
+    return f'gardenlinux-{release.canonical_release_manifest_key_suffix(hashed=hashed)}'.replace(
         '.', '-'
     ).replace(
         '_', '-'

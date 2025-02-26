@@ -4,6 +4,7 @@ import datetime
 import dateutil.parser
 import enum
 import functools
+import hashlib
 import itertools
 import os
 import subprocess
@@ -259,7 +260,7 @@ class ReleaseIdentifier:
             modifiers=self.modifiers,
         )
 
-    def canonical_release_manifest_key_suffix(self):
+    def canonical_release_manifest_key_suffix(self, hashed=False):
         """
         returns the canonical release manifest key. This key is used as a means to
         unambiguously identify it, and to thus be able to calculate its name if checking
@@ -267,14 +268,23 @@ class ReleaseIdentifier:
 
         the key consists of:
 
-        <canonical flavour name>-<version>-<commit-hash[:7]>
+        <canonical flavour name>-<version>-<commit-hash[:8]>
 
         where <canonical flavour name> is calculated from canonicalised_features()
         and <version> is the intended target release version.
 
         note that the full key should be prefixed (e.g. with manifest_key_prefix)
+
+        If the hashed parameter is set to True, the key consists of:
+        <platform>-<hash of canonical flavour name and version>-<version>-<commit-hash[:8]>
+
+        This is useful to get around key length limitations.
         """
         cname = canonical_name(platform=self.platform, mods=self.modifiers, architecture=self.architecture, version=self.version)
+
+        if hashed:
+            cname = f'{self.platform}-{hashlib.shake_256(cname.encode()).hexdigest(12)}-{self.version}'
+
         return f'{cname}-{self.build_committish[:8]}'
 
     def canonical_release_manifest_key(self):
