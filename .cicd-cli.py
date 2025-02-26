@@ -257,7 +257,7 @@ def retrieve_release_set():
     )
     _retrieve_argparse(parser=parser)
     parser.add_argument(
-        '--flavourset-name',
+        '--flavourset',
         default='gardener',
         help='Flavour set, see: https://github.com/gardenlinux/gardenlinux/blob/main/flavours.yaml'
         ' default: %(default)s',
@@ -281,7 +281,7 @@ def retrieve_release_set():
     )
 
     release_set = find_release_set(
-        flavour_set_name=parsed.flavourset_name,
+        flavour_set_name=parsed.flavourset,
         build_committish=parsed.committish,
         version=parsed.version,
         gardenlinux_epoch=parsed.gardenlinux_epoch,
@@ -303,8 +303,11 @@ def retrieve_release_set():
 
 def _add_flavourset_args(parser):
     parser.add_argument(
-        '--flavourset-name',
-        default='gardener',
+        '--flavourset',
+        action='append',
+        dest='flavoursets',
+        default=[],
+        help='if set, only specified flavoursets will be published (default: publish all)',
     )
     parser.add_argument(
         '--flavours-file',
@@ -312,18 +315,21 @@ def _add_flavourset_args(parser):
     )
 
 
-def _flavourset(parsed):
+def _flavoursets(parsed):
     if parsed.flavours_file:
         flavours_path = parsed.flavours_file
     else:
         flavours_path = paths.flavour_cfg_path
 
-    flavour_set = glci.util.flavour_set(
-        flavour_set_name=parsed.flavourset_name,
-        build_yaml=flavours_path,
-    )
+    if parsed.flavoursets:
+        flavour_sets = [glci.util.flavour_set(
+            flavour_set_name=flavourset,
+            build_yaml=flavours_path,
+        ) for flavourset in parsed.flavoursets]
+    else:
+        flavour_sets = glci.util.flavour_sets(build_yaml=flavours_path)
 
-    return flavour_set
+    return flavour_sets
 
 
 def _add_publishing_cfg_args(
@@ -367,8 +373,10 @@ def ls_manifests():
 
     parsed = parser.parse_args()
 
-    flavour_set = _flavourset(parsed)
-    flavours = tuple(flavour_set.flavours())
+    flavour_sets = _flavoursets(parsed)
+    flavours = []
+    for fs in flavour_sets:
+        flavours.extend(fs.flavours())
 
     version = parsed.version
 
@@ -547,16 +555,16 @@ def publish_release_set():
 
     cfg = _publishing_cfg(parsed)
 
-    flavour_set = _flavourset(parsed)
+    flavour_sets = _flavoursets(parsed)
 
     if len(commit) != 40:
         repo = git.Repo(path=paths.gardenlinux_dir)
         commit = repo.git.rev_parse(commit)
         logger.info(f'expanded commit to {commit}')
 
-
+    flavour_set_names = [flavour_set.name for flavour_set in flavour_sets]
     logger.info(
-        f'Publishing gardenlinux {version}@{commit} ({flavour_set.name=})\n'
+        f'Publishing gardenlinux {version}@{commit} ({flavour_set_names})\n'
     )
 
     if not (phase := parsed.phase):
@@ -609,17 +617,18 @@ def publish_release_set():
     s3_session = glci.aws.session(source_manifest_bucket.aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-
-    release_manifests = list(
-        glci.util.find_releases(
-            s3_client=s3_client,
-            bucket_name=source_manifest_bucket.bucket_name,
-            fset=flavour_set,
-            build_committish=commit,
-            version=version,
-            gardenlinux_epoch=int(version.split('.')[0]),
+    release_manifests = []
+    for fs in flavour_sets:
+        release_manifests.extend(
+            glci.util.find_releases(
+                s3_client=s3_client,
+                bucket_name=source_manifest_bucket.bucket_name,
+                fset=fs,
+                build_committish=commit,
+                version=version,
+                gardenlinux_epoch=int(version.split('.')[0]),
+            )
         )
-    )
 
     if not release_manifests:
         phase_logger.fatal(
@@ -882,17 +891,19 @@ def cleanup_release_set():
     s3_session = glci.aws.session(target_manifest_buckets[0].aws_cfg_name)
     s3_client = s3_session.client('s3')
 
-    flavour_set = _flavourset(parsed)
-    release_manifests = list(
-        glci.util.find_releases(
-            s3_client=s3_client,
-            bucket_name=target_manifest_buckets[0].bucket_name,
-            fset=flavour_set,
-            build_committish=commit,
-            version=version,
-            gardenlinux_epoch=int(version.split('.')[0]),
+    flavour_sets = _flavoursets(parsed)
+    release_manifests = []
+    for fs in flavour_sets:
+        release_manifests.extend(
+            glci.util.find_releases(
+                s3_client=s3_client,
+                bucket_name=target_manifest_buckets[0].bucket_name,
+                fset=fs,
+                build_committish=commit,
+                version=version,
+                gardenlinux_epoch=int(version.split('.')[0]),
+            )
         )
-    )
 
     logger.info(f"found {len(release_manifests)} release manifests in bucket {target_manifest_buckets[0].bucket_name}")
 
