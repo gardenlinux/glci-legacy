@@ -4,12 +4,8 @@ from datetime import (
     timedelta,
     UTC,
 )
-from enum import Enum
 import logging
 
-import requests
-
-from msal import ConfidentialClientApplication
 from azure.storage.blob import (
     BlobClient,
     BlobType,
@@ -54,28 +50,6 @@ logger = logging.getLogger(__name__)
 
 # disable verbose http-logging from azure-sdk
 logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
-
-
-'''
-Note: We no longer publish to Azure Marketplace. Instead we only publish to the community
-gallery. The code to publish to the marketplace is deprecated and could be removed.
-
-The publishing process for an image to the Azure Marketplace consist of
-two sequences of steps.
-
-1. publishing steps - this include the upload of the image to an Azure StorageAccount,
-the update of the gardenlinux Marketplace spec, the trigger of the publish operation
-which will trigger the validation of the image on the Microsoft side and upload
-the image into their staging enviroment.
-Those steps are covered by the "upload_and_publish_image" function.
-
-2. check and approve steps – first the progress of the triggered publish operation
-will be checked. If the publish operation has been completed the go live operation
-will be triggered automatically. After that it will check for the progress of the
-go live operation and if this also has been completed it will return the urn of the image.
-Those steps are covered by the "check_offer_transport_state" function.
-It need to be called multiple times until the entire process has been completed.
-'''
 
 
 class AzureImageStore:
@@ -157,199 +131,6 @@ class AzureImageStore:
         return result_url, container_sas
 
 
-class AzmpOperationState(Enum):
-    NOTSTARETD = "notStarted"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    SUCCEEDED = "succeeded"
-    CANCELED = "canceled"
-    FAILED = "failed"
-
-class AzmpTransportDest(Enum):
-    STAGING = "staging"
-    PROD = "production"
-
-class AzureMarketplaceClient:
-    """Azure Marketplace Client is a client to interact with the Azure Marketplace."""
-
-    marketplace_baseurl = "https://cloudpartner.azure.com/api/publishers"
-
-    def __init__(self, spn_tenant_id: str, spn_client_id: str, spn_client_secret: str):
-        app_client = ConfidentialClientApplication(
-            client_id=spn_client_id,
-            authority=f"https://login.microsoftonline.com/{spn_tenant_id}",
-            client_credential=spn_client_secret
-        )
-        token = app_client.acquire_token_for_client(scopes=["https://cloudpartner.azure.com/.default"])
-        if 'error' in token:
-            raise RuntimeError("Could not fetch token for Azure Marketplace client", token['error_description'])
-        self.token = token['access_token']
-
-    def _request(self, url: str, method='GET', headers=None, params=None, **kwargs):
-        if params is None:
-            params = {}
-        if headers is None:
-            headers = {}
-        if 'Authorization' not in headers:
-            headers['Authorization'] = f"Bearer {self.token}"
-        if 'Content-Type' not in headers:
-            headers['Content-Type'] = "application/json"
-
-        if 'api-version' not in params:
-            params['api-version'] = '2017-10-31'
-
-        return requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            params=params,
-            **kwargs
-        )
-
-    def _api_url(self, *parts):
-        return '/'.join(p for p in (self.marketplace_baseurl, *parts))
-
-    @staticmethod
-    def _raise_for_status(response, message=""):
-        if response.ok:
-            return
-        if response.status_code == 409:
-            logger.warning(f"Conflicting Azure MP operation exists: {message}. statuscode={response.status_code}")
-            return
-        if message:
-            raise RuntimeError(f"{message}. statuscode={response.status_code}")
-        raise RuntimeError(f"HTTP call to {response.url} failed. statuscode={response.status_code}")
-
-    def fetch_offer(self, publisher_id: str, offer_id: str):
-        """Fetch an offer from Azure marketplace."""
-
-        response = self._request(url=self._api_url(publisher_id, "offers", offer_id))
-        self._raise_for_status(
-            response=response,
-            message='Fetching of Azure marketplace offer for gardenlinux failed',
-        )
-        offer_spec = response.json()
-        return offer_spec
-
-    def update_offer(self, publisher_id: str, offer_id: str, spec: dict):
-        """Update an offer with a give spec."""
-
-        response = self._request(
-            url=self._api_url(publisher_id, "offers", offer_id),
-            method='PUT',
-            headers={"If-Match": "*"},
-            json=spec,
-        )
-        self._raise_for_status(
-            response=response,
-            message='Update of Azure marketplace offer for gardenlinux failed',
-        )
-
-    def publish_offer(self, publisher_id: str, offer_id: str, notification_mails=()):
-        """Trigger (re-)publishing of an offer."""
-
-        data = {
-            "metadata": {
-                "notification-emails": ",".join(notification_mails)
-            }
-        }
-        res = self._request(
-            method='POST',
-            url=self._api_url(publisher_id, 'offers', offer_id, 'publish'),
-            json=data,
-        )
-        self._raise_for_status(
-            response=res,
-            message=f'{res=} {res.status_code=} {res.reason=} {res.content=}'
-        )
-
-    def fetch_ongoing_operation_id(self, publisher_id: str, offer_id: str, transport_dest: AzmpTransportDest):
-        """Fetches the id of an ongoing Azure Marketplace transport operation to a certain transport destination."""
-
-        response = self._request(url=self._api_url(publisher_id, "offers", offer_id, "submissions"))
-        self._raise_for_status(
-            response=response,
-            message="Could not fetch Azure Marketplace transport operations for gardenlinux offer",
-        )
-        operations = response.json()
-        for operation in operations:
-            if AzmpTransportDest(operation["slot"]) == transport_dest and AzmpOperationState(operation["submissionState"]) == AzmpOperationState.RUNNING:
-                return operation["id"]
-        logger.warning("Did not find an ongoing transport operation to ship Garden Linux offer on the Azure Marketplace.")
-        return "undefined"
-
-    def fetch_operation_state(self, publisher_id: str, offer_id: str, operation_id: str):
-        """Fetches the state of a given Azure Marketplace transport operation."""
-
-        response = self._request(url=self._api_url(publisher_id, "offers", offer_id, "operations", operation_id))
-        self._raise_for_status(
-            response=response,
-            message=f"Can't fetch state for transport operation {operation_id}",
-        )
-        operation = response.json()
-        return AzmpOperationState(operation['status'])
-
-    def go_live(self, publisher_id: str, offer_id: str):
-        """Trigger a go live operation to transport an Azure Marketplace offer to production."""
-
-        response = self._request(
-            method='POST',
-            url=self._api_url(publisher_id, "offers", offer_id, "golive"),
-        )
-        self._raise_for_status(
-            response=response,
-            message="Go live of updated gardenlinux Azure Marketplace offer failed",
-        )
-
-
-def _find_plan_spec(offer_spec :dict, plan_id: str):
-    plan_spec = {}
-    for plan in offer_spec["definition"]["plans"]:
-        if plan["planId"] == plan_id:
-            plan_spec = plan
-            break
-    else:
-        raise RuntimeError(f"Plan {plan_id} not found in offer {plan_spec['id']}.")
-    return plan_spec
-
-def add_image_version_to_plan(
-    spec: dict,
-    plan_id: str,
-    image_version: str,
-    image_url: str
-):
-    """
-    Add a new image version to a given plan and return a modified offer spec.
-
-    The offer spec needs to be fetched upfront from the Azure Marketplace.
-    The modified offer spec needs to be pushed to the Azure Marketplace.
-    """
-
-    plan_spec = _find_plan_spec(spec, plan_id)
-    plan_spec["microsoft-azure-virtualmachines.vmImages"][image_version] = {
-        "osVhdUrl": image_url,
-        "lunVhdDetails": []
-    }
-    return spec
-
-
-def remove_image_version_from_plan(spec: dict, plan_id: str, image_version: str):
-    """
-    Remove an image version from a given plan and return a modified offer spec.
-
-    The offer spec needs to be fetched upfront from the Azure Marketplace.
-    The modified offer spec needs to be pushed to the Azure Marketplace.
-    """
-
-    plan_spec = _find_plan_spec(spec, plan_id)
-    del plan_spec["microsoft-azure-virtualmachines.vmImages"][image_version]
-    return spec
-
-
-def generate_urn(marketplace_cfg: glci.model.AzureMarketplaceCfg, image_version: str):
-    return f"{marketplace_cfg.publisher_id}:{marketplace_cfg.offer_id}:{marketplace_cfg.plan_id}:{image_version}"
-
-
 def copy_image_from_s3_to_az_storage_account(
     storage_account_cfg: glci.model.AzureStorageAccountCfg,
     s3_bucket_name: str,
@@ -381,57 +162,6 @@ def copy_image_from_s3_to_az_storage_account(
     )
 
     return store.get_image_url(target_blob_name)
-
-
-def update_and_publish_marketplace_offer(
-    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
-    marketplace_cfg: glci.model.AzureMarketplaceCfg,
-    image_version: str,
-    image_url: str,
-):
-
-    marketplace_client = AzureMarketplaceClient(
-        spn_tenant_id=service_principal_cfg.tenant_id,
-        spn_client_id=service_principal_cfg.client_id,
-        spn_client_secret=service_principal_cfg.client_secret,
-    )
-
-    publisher_id = marketplace_cfg.publisher_id
-    offer_id = marketplace_cfg.offer_id
-    plan_id = marketplace_cfg.plan_id
-
-    offer_spec = marketplace_client.fetch_offer(
-        publisher_id=publisher_id,
-        offer_id=offer_id,
-    )
-
-    # Add new image version to plan in the offer spec.
-    modified_offer_spec = add_image_version_to_plan(
-        spec=offer_spec,
-        plan_id=plan_id,
-        image_version=image_version,
-        image_url=image_url,
-    )
-
-    # Update the marketplace offer.
-    marketplace_client.update_offer(
-        publisher_id=publisher_id,
-        offer_id=offer_id,
-        spec=modified_offer_spec,
-    )
-
-    marketplace_client.publish_offer(
-        publisher_id=publisher_id,
-        offer_id=offer_id,
-        notification_mails=marketplace_cfg.notification_emails,
-    )
-
-    publish_operation_id = marketplace_client.fetch_ongoing_operation_id(
-        publisher_id=publisher_id,
-        offer_id=offer_id,
-        transport_dest=AzmpTransportDest.STAGING,
-    )
-    return publish_operation_id
 
 
 def _get_target_blob_name(version: str, generation: glci.model.AzureHyperVGeneration = None, architecture: glci.model.Architecture = glci.model.Architecture.AMD64):
@@ -667,56 +397,14 @@ def publish_to_azure_community_gallery(
     return community_gallery_published_image
 
 
-def publish_to_azure_marketplace(
-    image_url: str,
-    sas_token: str,
-    published_version: str,
-    hyper_v_generation: glci.model.AzureHyperVGeneration,
-    service_principal_cfg: glci.model.AzureServicePrincipalCfg,
-    marketplace_cfg: glci.model.AzureMarketplaceCfg,
-) -> glci.model.AzureMarketplacePublishedImage | None:
-    # for now, we only support Hyper-V generation V1 in Marketplace
-    if hyper_v_generation != glci.model.AzureHyperVGeneration.V1:
-        logger.warning(f"Publishing {hyper_v_generation} images to Azure Marketplace is currently not supported.")
-        return None
-
-    # uploading to marketplace requires an SAS token
-    image_url = f"{image_url}?{sas_token}"
-
-    # Update Marketplace offer and start publishing.
-    publish_operation_id = update_and_publish_marketplace_offer(
-        service_principal_cfg=service_principal_cfg,
-        marketplace_cfg=marketplace_cfg,
-        image_version=published_version,
-        image_url=image_url
-    )
-    logger.info(f"Azure Marketplace publish operation ID is {publish_operation_id}")
-
-    # use anticipated URN for now
-    urn=generate_urn(marketplace_cfg, published_version)
-    logger.info(f'Image shared on marketplace: {urn=}')
-
-    marketplace_published_image = glci.model.AzureMarketplacePublishedImage(
-        hyper_v_generation=hyper_v_generation.value,
-        publish_operation_id=publish_operation_id,
-        golive_operation_id='',
-        urn=urn
-    )
-
-    return marketplace_published_image
-
-
 def publish_azure_image(
     s3_client,
     release: glci.model.OnlineReleaseManifest,
     service_principal_cfg: glci.model.AzureServicePrincipalCfg,
     storage_account_cfg: glci.model.AzureStorageAccountCfg,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
-    marketplace_cfg: glci.model.AzureMarketplaceCfg,
     hyper_v_generations: list[glci.model.AzureHyperVGeneration],
     azure_cloud: glci.model.AzureCloud,
-    publish_to_community_gallery: bool = True,
-    publish_to_marketplace: bool = False,
 ) -> glci.model.OnlineReleaseManifest:
 
     credential = ClientSecretCredential(
@@ -752,7 +440,7 @@ def publish_azure_image(
     target_blob_name = _get_target_blob_name(release.version, architecture=release.architecture)
 
     logger.info(f'Copying from S3 (at {s3_client.meta.endpoint_url}) to Azure Storage Account blob: {target_blob_name=}')
-    image_url, sas_token = copy_image_from_s3_to_az_storage_account(
+    image_url, _ = copy_image_from_s3_to_az_storage_account(
         storage_account_cfg=storage_account_cfg,
         s3_client=s3_client,
         s3_bucket_name=azure_release_artifact_path.s3_bucket_name,  # FIXME: this must be adapted to the buildresult bucket, conicidence has it that they are both the same
@@ -766,6 +454,8 @@ def publish_azure_image(
 
     # as we publish to different Azure Clouds {public, china}, we must preserve community gallery images
     # for those clouds we are not dealing with at the moment
+    # even though we no longer support publishing to Az Marketplace, we need to preserve this code not
+    # to mess up exsisting release manifests
     if release.published_image_metadata and release.published_image_metadata.published_marketplace_images:
         published_marketplace_images = release.published_image_metadata.published_marketplace_images
     else:
@@ -788,33 +478,19 @@ def publish_azure_image(
         if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.architecture == glci.model.Architecture.ARM64:
             continue
 
-        if publish_to_marketplace:
-            logger.info(f'Publishing Azure Marketplace image for {hyper_v_generation}...')
-            marketplace_published_image = publish_to_azure_marketplace(
-                image_url=image_url,
-                sas_token=sas_token,
-                published_version=published_version,
-                hyper_v_generation=hyper_v_generation,
-                service_principal_cfg=service_principal_cfg,
-                marketplace_cfg=marketplace_cfg,
-            )
-            if marketplace_published_image is not None:
-                published_image.published_marketplace_images.append(marketplace_published_image)
-
-        if publish_to_community_gallery:
-            logger.info(f'Publishing community gallery image for {hyper_v_generation}...')
-            gallery_published_image = publish_to_azure_community_gallery(
-                image_url=image_url,
-                release=release,
-                published_version=published_version,
-                hyper_v_generation=hyper_v_generation,
-                cclient=cclient,
-                sbclient=sbclient,
-                subscription_id=service_principal_cfg.subscription_id,
-                shared_gallery_cfg=shared_gallery_cfg,
-                azure_cloud=azure_cloud
-            )
-            published_image.published_gallery_images.append(gallery_published_image)
+        logger.info(f'Publishing community gallery image for {hyper_v_generation}...')
+        gallery_published_image = publish_to_azure_community_gallery(
+            image_url=image_url,
+            release=release,
+            published_version=published_version,
+            hyper_v_generation=hyper_v_generation,
+            cclient=cclient,
+            sbclient=sbclient,
+            subscription_id=service_principal_cfg.subscription_id,
+            shared_gallery_cfg=shared_gallery_cfg,
+            azure_cloud=azure_cloud
+        )
+        published_image.published_gallery_images.append(gallery_published_image)
 
     return dataclasses.replace(release, published_image_metadata=published_image)
 
@@ -926,13 +602,3 @@ def delete_from_azure_community_gallery(
             result.wait()
     else:
         logger.warning(f"{image_definition=} still contains {image_version_count} image versions - keeping definition")
-
-
-def validate_azure_publishing_config(
-    release: glci.model.OnlineReleaseManifest,
-    publishing_cfg: glci.model.PublishingCfg,
-):
-    azure_publishing_cfg: glci.model.PublishingTargetAzure = publishing_cfg.target(platform=release.platform)
-
-    if azure_publishing_cfg.publish_to_marketplace and not azure_publishing_cfg.marketplace_cfg:
-        raise RuntimeError(f"Expected to publish to Azure Marketplace but no marketplace config in publishing config.")

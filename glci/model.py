@@ -131,7 +131,7 @@ class FeatureDescriptor:
             yield included_feature
 
 
-class Architecture(enum.Enum):
+class Architecture(enum.StrEnum):
     """
     gardenlinux' target architectures, following Debian's naming
     """
@@ -630,14 +630,6 @@ class PackageBuildCfg:
 
 
 @dataclasses.dataclass(frozen=True)
-class AzureMarketplaceCfg:
-    offer_id: str
-    publisher_id: str
-    plan_id: str
-    notification_emails: list[str]
-
-
-@dataclasses.dataclass(frozen=True)
 class AzureServicePrincipalCfg:
     tenant_id: str
     client_id: str
@@ -803,10 +795,7 @@ class PublishingTargetAzure:
     gallery_cfg_name: str
     storage_account_cfg_name: str
     service_principal_cfg_name: str
-    marketplace_cfg: typing.Optional[AzureMarketplaceCfg]
     hyper_v_generations: typing.List[AzureHyperVGeneration]
-    publish_to_marketplace: bool
-    publish_to_community_galleries: bool
     gallery_regions: typing.Optional[list[str]]
     platform: Platform = 'azure' # should not overwrite
 
