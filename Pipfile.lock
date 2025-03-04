@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "483c0f6f5b4563af23f3abc72a1f109e6a3491930671b88fc6e51871184a3631"
+            "sha256": "833d9dee01caea1f1336aa70dbd78b00916f4884ee572ada761820734a2d921e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -237,12 +237,12 @@
         },
         "azure-mgmt-storage": {
             "hashes": [
-                "sha256:4b61c3190648111c4d6c06d100dbae70f645f0a948a031167c562ac70a348d98",
-                "sha256:f67a4681b715b79b830e59f4efed6fdacd2c262ce862226f6cc5cef852296b70"
+                "sha256:25aaa5ae8c40c30e2f91f8aae6f52906b0557e947d5c1b9817d4ff9decc11340",
+                "sha256:a4a4064918dcfa4f1cbebada5bf064935d66f2a3647a2f46a1f1c9348736f5d9"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==22.0.0"
+            "version": "==22.1.1"
         },
         "azure-storage-blob": {
             "hashes": [
@@ -2072,7 +2072,7 @@
                 "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
                 "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==1.17.0"
         },
         "slackclient": {
