@@ -453,7 +453,7 @@ class ReleaseManifest(ReleaseIdentifier):
     build_timestamp: str
     paths: typing.Tuple[S3ReleaseFile, ...]
     base_image: typing.Optional[str]
-
+    secureboot: typing.Optional[bool]
 
     published_image_metadata: typing.Union[
         AlicloudPublishedImageSet,

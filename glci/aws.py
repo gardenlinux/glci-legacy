@@ -1,6 +1,7 @@
 import concurrent.futures
 import dataclasses
 import enum
+import io
 import logging
 import pprint
 import time
@@ -138,18 +139,19 @@ def register_image(
     snapshot_id: str,
     image_name: str,
     architecture: str,
+    uefi_data: typing.Optional[str],
 ) -> str:
     """
     @return: ami-id of registered image
     """
     root_device_name = '/dev/xvda'
 
-    result = ec2_client.register_image(
-        # ImageLocation=XX, s3-url?
-        Architecture=architecture,
-        BootMode='uefi-preferred',
-        ImdsSupport='v2.0', # Ensure we're using the hardened IMDS version
-        BlockDeviceMappings=[
+    params = {
+        # 'ImageLocation': XX, s3-url?
+        'Architecture': architecture,
+        'BootMode': 'uefi-preferred',
+        'ImdsSupport': 'v2.0',  # Ensure we're using the hardened IMDS version
+        'BlockDeviceMappings': [
             {
                 'DeviceName': root_device_name,
                 'Ebs': {
@@ -159,12 +161,16 @@ def register_image(
                 }
             }
         ],
-        Description='gardenlinux',
-        EnaSupport=True,
-        Name=image_name,
-        RootDeviceName=root_device_name,
-        VirtualizationType='hvm' # | paravirtual
-    )
+        'Description': 'gardenlinux',
+        'EnaSupport': True,
+        'Name': image_name,
+        'RootDeviceName': root_device_name,
+        'VirtualizationType': 'hvm'  # | paravirtual
+    }
+    if uefi_data:
+        params['UefiData'] = uefi_data
+
+    result = ec2_client.register_image(**params)
 
     # XXX need to wait until image is available (before publishing)
     return result['ImageId']
@@ -533,11 +539,22 @@ def upload_and_register_gardenlinux_image(
         attach_tags(ec2_client=ec2_client, resources=[snapshot_id], tags=tags)
         logger.info(f'import task finished {snapshot_id=}')
 
+        uefi_data = None
+        if release.secureboot:
+            buf = io.BytesIO()
+            s3_client.download_fileobj(
+                Bucket=bucket_name,
+                Key=release.path_by_suffix('.secureboot.aws-efivars').s3_key,
+                Fileobj=buf,
+            )
+            uefi_data = buf.getvalue().decode()
+
         initial_ami_id = register_image(
             ec2_client=ec2_client,
             snapshot_id=snapshot_id,
             image_name=target_image_name,
             architecture=_to_aws_architecture(release.architecture),
+            uefi_data=uefi_data,
         )
         attach_tags(ec2_client=ec2_client, resources=[initial_ami_id], tags=tags)
         logger.info(f'registered {initial_ami_id=}')
