@@ -677,8 +677,6 @@ def publish_release_set():
                 )
             else:
                 raise ValueError(on_absent) # programming error
-        else:
-            publish.validate_publishing_configuration(manifest, cfg)
 
     phase_logger.info('publishing-cfg was found to be okay - starting publishing now')
 

@@ -541,6 +541,8 @@ def upload_and_register_gardenlinux_image(
 
         uefi_data = None
         if release.secureboot:
+            logger.info('retrieving secureboot certificates')
+
             buf = io.BytesIO()
             s3_client.download_fileobj(
                 Bucket=bucket_name,
