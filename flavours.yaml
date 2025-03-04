@@ -21,3 +21,17 @@ flavour_sets:
         - gcp
         modifiers:
         - [ gardener, _prod ]
+  - name: 'gardener-secureboot'
+    flavour_combinations:
+      - architectures:
+        - amd64
+        platforms:
+        - aws
+        modifiers:
+        - [ gardener, _trustedboot, _tpm2, _prod ]
+      - architectures:
+        - arm64
+        platforms:
+        - aws
+        modifiers:
+        - [ gardener, _trustedboot, _tpm2, _prod ]
