@@ -1,5 +1,6 @@
 import dataclasses
 import functools
+import io
 import tempfile
 import time
 import logging
@@ -23,7 +24,7 @@ def upload_image_to_gcs_bucket(
     storage_client: google.cloud.storage.Client,
     s3_client,
     release: glci.model.OnlineReleaseManifest,
-    publishing_cfg: glci.model.PublishingTargetGCP,
+    gcp_publishing_cfg: glci.model.PublishingTargetGCP,
 ) -> google.cloud.storage.blob.Blob:
 
     gcp_release_artifact = glci.util.vm_image_artefact_for_platform('gcp')
@@ -32,7 +33,7 @@ def upload_image_to_gcs_bucket(
 
     image_blob_name = f'gardenlinux-{release.version}.tar.gz'
     s3_bucket_name = release.s3_bucket
-    gcp_bucket_name = publishing_cfg.gcp_bucket_name
+    gcp_bucket_name = gcp_publishing_cfg.gcp_bucket_name
 
     # XXX: rather do streaming
     with tempfile.TemporaryFile() as tfh:
@@ -71,10 +72,10 @@ def upload_image_to_gcs_bucket(
 def delete_image_from_gcs_bucket(
     storage_client: google.cloud.storage.Client,
     release: glci.model.OnlineReleaseManifest,
-    publishing_cfg: glci.model.PublishingTargetGCP,
+    gcp_publishing_cfg: glci.model.PublishingTargetGCP,
     dry_run: bool
 ):
-    gcp_bucket_name = publishing_cfg.gcp_bucket_name
+    gcp_bucket_name = gcp_publishing_cfg.gcp_bucket_name
     image_blob_name = f'gardenlinux-{release.version}.tar.gz'
 
     if dry_run:
@@ -90,6 +91,7 @@ def delete_image_from_gcs_bucket(
 
 def insert_image_to_gce_image_store(
     compute_client,
+    s3_client,
     image_blob: google.cloud.storage.blob.Blob,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
@@ -98,27 +100,71 @@ def insert_image_to_gce_image_store(
 
     images = compute_client.images()
 
+    body = {
+        'description': 'gardenlinux',
+        'name': image_name,
+        'rawDisk': {
+            'source': image_blob.generate_signed_url(int(time.time())),
+        },
+        'guestOsFeatures': [
+            {
+                'type': 'VIRTIO_SCSI_MULTIQUEUE',
+            },
+            {
+                'type': 'UEFI_COMPATIBLE',
+            },
+            {
+                'type': 'GVNIC',
+            },
+        ],
+        'architecture': _get_gcp_compliant_architecture_identifier(release.architecture),
+    }
+
+    if release.secureboot:
+        logger().info('retrieving secureboot certificates')
+
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.pk.crt').s3_key,
+            Fileobj=buf,
+        )
+        pk = buf.getvalue().decode()
+
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.kek.crt').s3_key,
+            Fileobj=buf,
+        )
+        keks = buf.getvalue().decode()
+
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.db.crt').s3_key,
+            Fileobj=buf,
+        )
+        dbs = buf.getvalue().decode()
+
+        body['initial_state_config'] = {
+            'pk': {
+                'content': pk,
+                'filetype': 'x509'
+            },
+            'keks': {
+                'content': keks,
+                'filetype': 'x509'
+            },
+            'dbs': {
+                'content': dbs,
+                'filetype': 'x509'
+            }
+        }
+
     insertion_rq = images.insert(
         project=gcp_project_name,
-        body={
-            'description': 'gardenlinux',
-            'name': image_name,
-            'rawDisk': {
-                'source': image_blob.generate_signed_url(int(time.time())),
-            },
-            'guestOsFeatures': [
-                {
-                    'type': 'VIRTIO_SCSI_MULTIQUEUE',
-                },
-                {
-                    'type': 'UEFI_COMPATIBLE',
-                },
-                {
-                    'type': 'GVNIC',
-                },
-            ],
-            'architecture': _get_gcp_compliant_architecture_identifier(release.architecture),
-        },
+        body=body
     )
 
     logger().info(f'inserting new image {image_name=} into project {gcp_project_name=}')
@@ -219,20 +265,19 @@ def upload_and_publish_image(
     compute_client,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
-    publishing_cfg: glci.model.PublishingTargetGCP,
+    gcp_publishing_cfg: glci.model.PublishingTargetGCP,
 ):
     image_blob = upload_image_to_gcs_bucket(
         storage_client=storage_client,
         s3_client=s3_client,
         release=release,
-        publishing_cfg=publishing_cfg,
+        gcp_publishing_cfg=gcp_publishing_cfg,
     )
-
-    release_manifest = None
 
     try:
         release_manifest = insert_image_to_gce_image_store(
             compute_client=compute_client,
+            s3_client=s3_client,
             image_blob=image_blob,
             gcp_project_name=gcp_project_name,
             release=release,
@@ -248,6 +293,7 @@ def upload_and_publish_image(
             )
             release_manifest = insert_image_to_gce_image_store(
                 compute_client=compute_client,
+                s3_client=s3_client,
                 image_blob=image_blob,
                 gcp_project_name=gcp_project_name,
                 release=release,
@@ -263,7 +309,7 @@ def cleanup_image(
     compute_client,
     gcp_project_name: str,
     release: glci.model.OnlineReleaseManifest,
-    publishing_cfg: glci.model.PublishingTargetGCP,
+    gcp_publishing_cfg: glci.model.PublishingTargetGCP,
     dry_run: bool
 ):
     delete_image_from_gce_image_store(
@@ -276,7 +322,7 @@ def cleanup_image(
     delete_image_from_gcs_bucket(
         storage_client=storage_client,
         release=release,
-        publishing_cfg=publishing_cfg,
+        gcp_publishing_cfg=gcp_publishing_cfg,
         dry_run=dry_run
     )
 

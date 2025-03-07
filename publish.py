@@ -65,31 +65,6 @@ def publish_image(
         raise
 
 
-def validate_publishing_configuration(
-    release: gm.OnlineReleaseManifest,
-    cfg: gm.PublishingCfg
-):
-    if release.platform == 'azure':
-        validation_function = None
-    elif release.platform == 'ali':
-        validation_function = None
-    elif release.platform == 'aws':
-        validation_function = None
-    elif release.platform == 'gcp':
-        validation_function = None
-    elif release.platform == 'openstack':
-        validation_function = None
-    elif release.platform == 'openstackbaremetal':
-        validation_function = None
-    elif release.platform == 'oci':
-        validation_function = None
-    else:
-        validation_function = None
-
-    if validation_function:
-        validation_function(release, cfg)
-
-
 def _publish_alicloud_image(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
@@ -217,7 +192,7 @@ def _publish_gcp_image(
         compute_client=compute_client,
         gcp_project_name=gcp_cfg.project(),
         release=release,
-        publishing_cfg=gcp_publishing_cfg,
+        gcp_publishing_cfg=gcp_publishing_cfg,
     )
 
 

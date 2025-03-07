@@ -137,7 +137,7 @@ def cleanup_gcp_images(
         compute_client=compute_client,
         gcp_project_name=gcp_cfg.project(),
         release=release,
-        publishing_cfg=gcp_publishing_cfg,
+        gcp_publishing_cfg=gcp_publishing_cfg,
         dry_run=dry_run
     )
 

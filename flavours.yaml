@@ -27,11 +27,13 @@ flavour_sets:
         - amd64
         platforms:
         - aws
+        - gcp
         modifiers:
         - [ gardener, _trustedboot, _tpm2, _prod ]
       - architectures:
         - arm64
         platforms:
         - aws
+        - gcp
         modifiers:
         - [ gardener, _trustedboot, _tpm2, _prod ]
