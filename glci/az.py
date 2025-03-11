@@ -1,3 +1,5 @@
+import io
+
 import dataclasses
 from datetime import (
     datetime,
@@ -6,6 +8,11 @@ from datetime import (
 )
 import logging
 
+from azure.mgmt.compute.v2023_07_03.models import (
+    ImageVersionSecurityProfile,
+    GalleryImageVersionUefiSettings,
+    UefiKeySignatures
+)
 from azure.storage.blob import (
     BlobClient,
     BlobType,
@@ -37,6 +44,7 @@ from azure.mgmt.compute.models import (
     OperatingSystemTypes,
     StorageAccountType,
     TargetRegion,
+    UefiKey
 )
 
 from azure.mgmt.compute.models import Architecture as AzureArchitecture
@@ -164,25 +172,29 @@ def copy_image_from_s3_to_az_storage_account(
     return store.get_image_url(target_blob_name)
 
 
-def _get_target_blob_name(version: str, generation: glci.model.AzureHyperVGeneration = None, architecture: glci.model.Architecture = glci.model.Architecture.AMD64):
-    arch = architecture.value.lower()
+def _get_target_blob_name(release: glci.model.OnlineReleaseManifest, generation: glci.model.AzureHyperVGeneration = None) -> str:
+    name = release.canonical_release_manifest_key_suffix()
     if generation and generation == glci.model.AzureHyperVGeneration.V2:
-        return f"gardenlinux-az-{version}-{arch}-gen2.vhd"
-    return f"gardenlinux-az-{version}-{arch}.vhd"
+        return f"gardenlinux-{name}-gen2.vhd"
+    return f"gardenlinux-{name}.vhd"
 
 
-def _append_hyper_v_generation_and_architecture(
+def _append_hyper_v_generation_architecture_and_secureboot(
         s: str,
         generation: glci.model.AzureHyperVGeneration,
-        architecture: glci.model.Architecture
+        architecture: glci.model.Architecture,
+        secureboot: bool
     ):
     if architecture == glci.model.Architecture.ARM64:
         s=f"{s}-arm64"
     if generation == glci.model.AzureHyperVGeneration.V2:
         s=f"{s}-gen2"
+    if secureboot:
+        s=f"{s}-secureboot"
     return s
 
 def _create_shared_image(
+    s3_client,
     cclient: ComputeManagementClient,
     sbclient: SubscriptionClient,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
@@ -195,9 +207,9 @@ def _create_shared_image(
     hyper_v_generation: glci.model.AzureHyperVGeneration,
     source_id: str,
     gallery_regions: list[str] | None,
-    architecture: glci.model.Architecture
+    release: glci.model.OnlineReleaseManifest
 ) -> CommunityGalleryImageVersion:
-    image_definition_name=_append_hyper_v_generation_and_architecture(image_name, hyper_v_generation, architecture)
+    image_definition_name=_append_hyper_v_generation_architecture_and_secureboot(image_name, hyper_v_generation, release.architecture, release.secureboot)
 
     # begin_create_or_update() can change gallery image definitions - which is potentially dangerous for existing images
     # checking if a given gallery image definition already exists to make sure only new definitions get created
@@ -211,6 +223,13 @@ def _create_shared_image(
         )
         logger.info(f'Gallery image definition {gallery_image.name} for generation {gallery_image.hyper_v_generation} on {gallery_image.architecture} already exists.')
     except ResourceNotFoundError:
+        features = [
+            GalleryImageFeature(name="IsAcceleratedNetworkSupported", value="True"),
+            GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
+        ]
+        if release.secureboot:
+            features.append(GalleryImageFeature(name="SecurityType", value="TrustedLaunchSupported"))
+
         poller = cclient.gallery_images.begin_create_or_update(
             resource_group_name=resource_group_name,
             gallery_name=gallery_name,
@@ -220,18 +239,15 @@ def _create_shared_image(
                 description=shared_gallery_cfg.description,
                 eula=shared_gallery_cfg.eula,
                 release_note_uri=shared_gallery_cfg.release_note_uri,
-                features=[
-                    GalleryImageFeature(name="IsAcceleratedNetworkSupported", value="True"),
-                    GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
-                ],
+                features=features,
                 os_type=OperatingSystemTypes.LINUX,
                 os_state=OperatingSystemStateTypes.GENERALIZED,
                 hyper_v_generation=HyperVGeneration(hyper_v_generation.value),
-                architecture=AzureArchitecture.ARM64 if architecture == glci.model.Architecture.ARM64 else AzureArchitecture.X64,
+                architecture=AzureArchitecture.ARM64 if release.architecture == glci.model.Architecture.ARM64 else AzureArchitecture.X64,
                 identifier=GalleryImageIdentifier(
                     publisher=shared_gallery_cfg.identifier_publisher,
                     offer=shared_gallery_cfg.identifier_offer,
-                    sku=_append_hyper_v_generation_and_architecture(shared_gallery_cfg.identifier_sku, hyper_v_generation, architecture),
+                    sku=_append_hyper_v_generation_architecture_and_secureboot(shared_gallery_cfg.identifier_sku, hyper_v_generation, release.architecture, release.secureboot),
                 )
             )
         )
@@ -252,6 +268,65 @@ def _create_shared_image(
         'jioindiawest',
     }
     logger.info(f"gallery {regions=}")
+
+    security_profile = None
+    if release.secureboot:
+        logger.info('retrieving secureboot certificates')
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.pk.crt').s3_key,
+            Fileobj=buf,
+        )
+        pk = buf.getvalue().decode()
+
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.kek.crt').s3_key,
+            Fileobj=buf,
+        )
+        kek = buf.getvalue().decode()
+
+        buf = io.BytesIO()
+        s3_client.download_fileobj(
+            Bucket=release.s3_bucket,
+            Key=release.path_by_suffix('.secureboot.db.crt').s3_key,
+            Fileobj=buf,
+        )
+        db = buf.getvalue().decode()
+
+        security_profile = ImageVersionSecurityProfile(
+            uefi_settings=GalleryImageVersionUefiSettings(
+                signature_template_names=[
+                    "NoSignatureTemplate"
+                ],
+                additional_signatures=UefiKeySignatures(
+                    pk=UefiKey(
+                        type="x509",
+                        value=[
+                            pk
+                        ]
+                    ),
+                    kek=[
+                        UefiKey(
+                            type="x509",
+                            value=[
+                                kek
+                            ]
+                        )
+                    ],
+                    db=[
+                        UefiKey(
+                            type="x509",
+                            value=[
+                                db
+                            ]
+                        )
+                    ]
+                )
+            )
+        )
 
     logger.info(f'Creating gallery image version {image_version=}')
     poller: LROPoller[GalleryImageVersion] = cclient.gallery_image_versions.begin_create_or_update(
@@ -280,7 +355,8 @@ def _create_shared_image(
                 source=GalleryArtifactVersionSource(
                     id=source_id
                 )
-            )
+            ),
+            security_profile=security_profile
         )
     )
     logger.info('...waiting for asynchronous operation to complete')
@@ -325,9 +401,10 @@ def publish_to_azure_community_gallery(
     sbclient: SubscriptionClient,
     subscription_id : str,
     shared_gallery_cfg: glci.model.AzureSharedGalleryCfg,
-    azure_cloud: glci.model.AzureCloud
+    azure_cloud: glci.model.AzureCloud,
+    s3_client
 ) -> glci.model.AzureImageGalleryPublishedImage:
-    published_name = _get_target_blob_name(release.version, hyper_v_generation, release.architecture)
+    published_name = _get_target_blob_name(release, hyper_v_generation)
 
     logger.info(f'Create community gallery image {published_name=} for Hyper-V generation {hyper_v_generation}')
 
@@ -370,6 +447,7 @@ def publish_to_azure_community_gallery(
     logger.info(f'Image created: {result.id=}, {result.name=}, {result.type=}')
 
     shared_img = _create_shared_image(
+        s3_client=s3_client,
         cclient=cclient,
         sbclient=sbclient,
         shared_gallery_cfg=shared_gallery_cfg,
@@ -380,7 +458,7 @@ def publish_to_azure_community_gallery(
         image_name=shared_gallery_cfg.published_name,
         image_version=published_version,
         hyper_v_generation=hyper_v_generation,
-        architecture=release.architecture,
+        release=release,
         source_id=result.id,
         gallery_regions=shared_gallery_cfg.regions
     )
@@ -437,7 +515,7 @@ def publish_azure_image(
     except ResourceExistsError:
         logger.info(f'Info: blob container {storage_account_cfg.container_name} already exists.')
 
-    target_blob_name = _get_target_blob_name(release.version, architecture=release.architecture)
+    target_blob_name = _get_target_blob_name(release)
 
     logger.info(f'Copying from S3 (at {s3_client.meta.endpoint_url}) to Azure Storage Account blob: {target_blob_name=}')
     image_url, _ = copy_image_from_s3_to_az_storage_account(
@@ -477,6 +555,9 @@ def publish_azure_image(
         # arm64 requires Hyper-V gen2 therefore not publishing arm64 for gen1
         if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.architecture == glci.model.Architecture.ARM64:
             continue
+        # secureboot requires Hyper-V gen2 therefore not publishing secureboot for gen1
+        if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.secureboot:
+            continue
 
         logger.info(f'Publishing community gallery image for {hyper_v_generation}...')
         gallery_published_image = publish_to_azure_community_gallery(
@@ -488,7 +569,8 @@ def publish_azure_image(
             sbclient=sbclient,
             subscription_id=service_principal_cfg.subscription_id,
             shared_gallery_cfg=shared_gallery_cfg,
-            azure_cloud=azure_cloud
+            azure_cloud=azure_cloud,
+            s3_client=s3_client
         )
         published_image.published_gallery_images.append(gallery_published_image)
 

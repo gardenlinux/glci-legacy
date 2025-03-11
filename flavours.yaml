@@ -28,6 +28,7 @@ flavour_sets:
         platforms:
         - aws
         - gcp
+        - azure
         modifiers:
         - [ gardener, _trustedboot, _tpm2, _prod ]
       - architectures:
@@ -35,5 +36,6 @@ flavour_sets:
         platforms:
         - aws
         - gcp
+        - azure
         modifiers:
         - [ gardener, _trustedboot, _tpm2, _prod ]
