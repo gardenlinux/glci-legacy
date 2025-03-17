@@ -168,6 +168,8 @@ def register_image(
         'VirtualizationType': 'hvm'  # | paravirtual
     }
     if uefi_data:
+        params['BootMode'] = 'uefi'
+        params['TpmSupport'] = 'v2.0'
         params['UefiData'] = uefi_data
 
     result = ec2_client.register_image(**params)

@@ -1,3 +1,4 @@
+import base64
 import dataclasses
 import functools
 import io
@@ -126,40 +127,44 @@ def insert_image_to_gce_image_store(
         buf = io.BytesIO()
         s3_client.download_fileobj(
             Bucket=release.s3_bucket,
-            Key=release.path_by_suffix('.secureboot.pk.crt').s3_key,
+            Key=release.path_by_suffix('.secureboot.pk.der').s3_key,
             Fileobj=buf,
         )
-        pk = buf.getvalue().decode()
+        pk = base64.b64encode(buf.getvalue()).decode()
 
         buf = io.BytesIO()
         s3_client.download_fileobj(
             Bucket=release.s3_bucket,
-            Key=release.path_by_suffix('.secureboot.kek.crt').s3_key,
+            Key=release.path_by_suffix('.secureboot.kek.der').s3_key,
             Fileobj=buf,
         )
-        keks = buf.getvalue().decode()
+        keks = base64.b64encode(buf.getvalue()).decode()
 
         buf = io.BytesIO()
         s3_client.download_fileobj(
             Bucket=release.s3_bucket,
-            Key=release.path_by_suffix('.secureboot.db.crt').s3_key,
+            Key=release.path_by_suffix('.secureboot.db.der').s3_key,
             Fileobj=buf,
         )
-        dbs = buf.getvalue().decode()
+        dbs = base64.b64encode(buf.getvalue()).decode()
 
-        body['initial_state_config'] = {
+        body['shieldedInstanceInitialState'] = {
             'pk': {
                 'content': pk,
-                'filetype': 'x509'
+                'fileType': 'X509'
             },
-            'keks': {
-                'content': keks,
-                'filetype': 'x509'
-            },
-            'dbs': {
-                'content': dbs,
-                'filetype': 'x509'
-            }
+            'keks': [
+                {
+                    'content': keks,
+                    'fileType': 'X509'
+                }
+            ],
+            'dbs': [
+                {
+                    'content': dbs,
+                    'fileType': 'X509'
+                }
+            ]
         }
 
     insertion_rq = images.insert(
