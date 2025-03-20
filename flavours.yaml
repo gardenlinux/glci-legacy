@@ -25,13 +25,6 @@ flavour_sets:
     flavour_combinations:
       - architectures:
         - amd64
-        platforms:
-        - aws
-        - gcp
-        - azure
-        modifiers:
-        - [ gardener, _trustedboot, _tpm2, _prod ]
-      - architectures:
         - arm64
         platforms:
         - aws

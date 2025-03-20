@@ -7,6 +7,11 @@ The images to be published are built in a separate pipeline from sources hosted 
 [gardenlinux repository](https://github.com/gardenlinux/gardenlinux), and consumed from a
 S3 bucket.
 
+# Container
+
+```shell
+podman run --rm -it -v /path/to/gardenlinux-credentials.json:/gardenlinux-credentials.json:ro glci /glci/publish-release-set --cfg-name gardener-integration-test --version "$version" --commit "$commitish"
+```
 
 # (Local) Setup
 
