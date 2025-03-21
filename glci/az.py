@@ -589,6 +589,7 @@ def _create_shared_image(
         'brazilus',
         'jioindiacentral',
         'jioindiawest',
+        'indonesiacentral',
     }
     logger.info(f"gallery {regions=}")
 
