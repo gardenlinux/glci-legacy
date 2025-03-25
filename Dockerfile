@@ -10,7 +10,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 WORKDIR /glci
 
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --root-user-action ignore --no-cache-dir -r requirements.txt
 COPY glci/ glci/
 COPY *.py ./
 RUN ln -s .cicd-cli.py ls-manifests && \
