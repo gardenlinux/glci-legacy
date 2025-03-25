@@ -10,7 +10,7 @@ S3 bucket.
 # Container
 
 ```shell
-podman run --rm -it -v /path/to/gardenlinux-credentials.json:/gardenlinux-credentials.json:ro glci /glci/publish-release-set --cfg-name gardener-integration-test --version "$version" --commit "$commitish"
+podman run --rm -it -v /path/to/gardenlinux-credentials.json:/gardenlinux-credentials.json:ro ghcr.io/gardenlinux/glci /glci/publish-release-set --cfg-name gardener-integration-test --version "$version" --commit "$commitish"
 ```
 
 # (Local) Setup
