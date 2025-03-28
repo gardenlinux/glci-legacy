@@ -129,7 +129,7 @@ rsa==4.9
 ruamel.yaml==0.17.21
 s3transfer==0.11.4
 semver==3.0.4
-setuptools==78.0.2
+setuptools==78.1.0
 six==1.17.0
 slackclient==2.9.4
 smmap==5.0.2
