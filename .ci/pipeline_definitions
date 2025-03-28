@@ -49,7 +49,7 @@ glci:
           dockerimages:
             job-image:
               image: europe-docker.pkg.dev/gardener-project/releases/cicd/glci-job-image
-              dockerfile: 'Dockerfile'
+              dockerfile: 'Dockerfile.concourse'
               tag_as_latest: true
         release:
           release_on_github: false
