@@ -17,7 +17,7 @@ azure-mgmt-subscription==3.1.1
 azure-storage-blob==12.25.0
 babel==2.17.0
 bcrypt==4.3.0
-boto3==1.37.19
+boto3==1.37.23
 botocore==1.37.19
 CacheControl==0.14.2
 cachetools==5.5.2
