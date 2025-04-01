@@ -19,7 +19,7 @@ RUN ln -s .cicd-cli.py ls-manifests && \
 COPY publishing-cfg.yaml package_aliases.yaml flavours.yaml ./
 ENV SECRET_CIPHER_ALGORITHM=AES.ECB SECRETS_SERVER_ENDPOINT=TRUE
 
-ENV CREDENTIALS_JSON_PATH=/gardenlinux-credentials.json CREDENTIALS_JSON_GPG_PATH=/gardenlinux-credentials.json.gpg CREDENTIALS_KEY='' GARDENLINUX_BRANCH=main BUILDER_BRANCH=main
+ENV CREDENTIALS_JSON='' CREDENTIALS_JSON_BASE64='' CREDENTIALS_JSON_PATH=/gardenlinux-credentials.json CREDENTIALS_JSON_GPG_PATH='' CREDENTIALS_KEY='' GARDENLINUX_BRANCH=main BUILDER_BRANCH=main
 
 COPY entrypoint.sh /
 ENTRYPOINT ["/entrypoint.sh"]
