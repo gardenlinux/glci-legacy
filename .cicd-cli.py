@@ -549,9 +549,9 @@ def publish_release_set():
             commit = publish_version.commit
     else:
         with open(parsed.version_file[0]) as f:
-            parsed = yaml.safe_load(f)
-            version = parsed['version']
-            commit = parsed['committish']
+            version_yaml = yaml.safe_load(f)
+            version = version_yaml['version']
+            commit = version_yaml['committish']
 
     cfg = _publishing_cfg(parsed)
 
