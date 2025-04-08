@@ -265,6 +265,7 @@ def _create_shared_image(
     # rm regions not yet supported (although they are returned by the subscription-client)
     regions -= {
         'brazilus',
+        'indonesiacentral',
         'jioindiacentral',
         'jioindiawest',
     }
