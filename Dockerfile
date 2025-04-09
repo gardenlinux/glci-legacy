@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.13.2-slim
+FROM docker.io/library/python:3.13.3-slim
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
