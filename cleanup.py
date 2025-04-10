@@ -35,7 +35,7 @@ def cleanup_image(
         logger.warning(f"Running in DRY RUN mode {dry_run=}")
 
     if release.platform == 'ali':
-        cleanup_function = None # clean_alicloud_images
+        cleanup_function = cleanup_alicloud_images
     elif release.platform == 'aws':
         cleanup_function = cleanup_aws_images_by_id
     elif release.platform == 'gcp':
@@ -99,10 +99,15 @@ def cleanup_aws_images_by_id(
         )
 
 
-def clean_alicloud_images(
+def cleanup_alicloud_images(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
-) -> gm.OnlineReleaseManifest:
+    dry_run: bool = False
+):
+    if dry_run:
+        print(f'Aliyun cleanup dry run not implemented')
+        return
+
 
     import glci.alicloud
     aliyun_cfg = publishing_cfg.target(release.platform)
@@ -118,21 +123,21 @@ def clean_alicloud_images(
         aliyun_cfg,
     )
 
-    return maker.delete_images()
+    maker.delete_images()
 
 
 def cleanup_gcp_images(
     release: gm.OnlineReleaseManifest,
     publishing_cfg: gm.PublishingCfg,
     dry_run: bool = False
-) -> gm.OnlineReleaseManifest:
+):
     gcp_publishing_cfg: gm.PublishingTargetGCP = publishing_cfg.target(release.platform)
     cfg_factory = ci.util.ctx().cfg_factory()
     gcp_cfg = cfg_factory.gcp(gcp_publishing_cfg.gcp_cfg_name)
     storage_client = glci.gcp.cloud_storage_client(gcp_cfg)
     compute_client = glci.gcp.authenticated_build_func(gcp_cfg)('compute', 'v1')
 
-    return glci.gcp.cleanup_image(
+    glci.gcp.cleanup_image(
         storage_client=storage_client,
         compute_client=compute_client,
         gcp_project_name=gcp_cfg.project(),

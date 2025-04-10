@@ -91,6 +91,11 @@
     ocm_repository: europe-docker.pkg.dev/sap-se-gcp-gardenlinux/tests
     overwrite_component_descriptor: true
   targets:
+    - platform: 'ali'
+      oss_bucket_name: 'gardenlinux-test-upload'
+      aliyun_region: 'eu-central-1'
+      aliyun_cfg_name: 'gardenlinux-integration-test'
+      copy_regions: ['eu-central-1', 'eu-west-1']
     - platform: 'aws'
       aws_cfgs:
         - aws_cfg_name: 'gardenlinux-integration-test'

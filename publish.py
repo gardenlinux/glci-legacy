@@ -30,7 +30,7 @@ def publish_image(
 
     if release.platform == 'ali':
         publish_function = _publish_alicloud_image
-        cleanup_function = cleanup.clean_alicloud_images
+        cleanup_function = cleanup.cleanup_alicloud_images
     elif release.platform == 'aws':
         publish_function = _publish_aws_image
         cleanup_function = cleanup.cleanup_aws_images
