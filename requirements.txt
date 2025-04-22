@@ -15,7 +15,7 @@ azure-mgmt-compute==34.1.0
 azure-mgmt-core==1.5.0
 azure-mgmt-storage==22.1.1
 azure-mgmt-subscription==3.1.1
-azure-storage-blob==12.25.0
+azure-storage-blob==12.25.1
 babel==2.17.0
 bcrypt==4.3.0
 boto3==1.37.34
