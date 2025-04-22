@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-git clone -q -b "$GARDENLINUX_BRANCH" --single-branch https://github.com/gardenlinux/builder.git /gardenlinux-builder
-git clone -q -b "$BUILDER_BRANCH" --single-branch https://github.com/gardenlinux/gardenlinux.git /gardenlinux
+git clone -q -b "$BUILDER_BRANCH" --single-branch https://github.com/gardenlinux/builder.git /gardenlinux-builder
+git clone -q -b "$GARDENLINUX_BRANCH" --single-branch https://github.com/gardenlinux/gardenlinux.git /gardenlinux
 
 [ -z "$CREDENTIALS_KEY" ] || {
   CREDENTIALS_JSON_PATH="$(mktemp)"
