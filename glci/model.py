@@ -276,14 +276,14 @@ class ReleaseIdentifier:
         note that the full key should be prefixed (e.g. with manifest_key_prefix)
 
         If the hashed parameter is set to True, the key consists of:
-        <platform>-<hash of canonical flavour name and version>-<version>-<commit-hash[:8]>
+        <platform>-<hash of canonical flavour name>-<version>-<commit-hash[:8]>
 
         This is useful to get around key length limitations.
         """
         cname = canonical_name(platform=self.platform, mods=self.modifiers, architecture=self.architecture, version=self.version)
 
         if hashed:
-            cname = f'{self.platform}-{hashlib.shake_256(cname.encode()).hexdigest(12)}-{self.version}'
+            cname = f'{self.platform}-{hashlib.shake_256(cname.removesuffix(self.version).encode()).hexdigest(12)}-{self.version}'
 
         return f'{cname}-{self.build_committish[:8]}'
 
