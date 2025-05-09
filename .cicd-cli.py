@@ -62,40 +62,6 @@ class EnumAction(argparse.Action):
         setattr(namespace, self.dest, value)
 
 
-def gardenlinux_epoch():
-    print(glci.model.gardenlinux_epoch_from_workingtree())
-
-
-def gardenlinux_timestamp():
-    epoch = glci.model.gardenlinux_epoch_from_workingtree()
-
-    print(glci.model.snapshot_date(epoch=epoch))
-
-
-def  _fix_version(parsed_version: str, parsed_epoch: int):
-    """
-    Check if parsed version is a semver version number and issue a warning if not
-    if argument default is used and it is semver it is likely 'today'. Use
-    current day in this case.
-    """
-    pattern = re.compile(r'^[\d.]+$')
-    is_proper_version = pattern.match(parsed_version)
-    # check if default is used from argparser
-    if parsed_version != glci.model.parse_version_from_workingtree():
-        if not is_proper_version:
-            print(f'>>> WARNING: {parsed_version} is not a semver version! <<<')
-        result = parsed_version
-    else:
-        if is_proper_version:
-            result = parsed_version
-        else:
-            result = f'{parsed_epoch}.0'
-
-    if parsed_epoch != int(result.split('.')[0]):
-        print(f'>>> WARNING: version {result} does not match epoch {parsed_epoch}! <<<')
-    return result
-
-
 def _add_flavourset_args(parser):
     parser.add_argument(
         '--flavourset',
