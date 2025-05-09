@@ -479,24 +479,6 @@ def find_release_set(
     return manifest
 
 
-@functools.lru_cache
-def preconfigured(
-    func: callable,
-    cfg=None
-):
-    if not cfg:
-        cfg = glci.model.CicdCfg=cfg()
-
-    s3_session = glci.aws.session(cfg.build.aws_cfg_name)
-    s3_client = s3_session.client('s3')
-
-    return functools.partial(
-        func,
-        s3_client=s3_client,
-        bucket_name=cfg.build.s3_bucket_name,
-    )
-
-
 class EnumValueYamlDumper(yaml.SafeDumper):
     """
     a yaml.SafeDumper that will dump enum objects using their values
