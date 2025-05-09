@@ -926,13 +926,6 @@ class PublishingCfg:
                 yield bucket
 
 
-@dataclasses.dataclass
-class PublishingVersion:
-    name: str
-    version: str
-    commit: str
-
-
 def _enumerate_feature_files(features_dir=os.path.join(paths.gardenlinux_dir, 'features')):
     for root, _, files in os.walk(features_dir):
         for name in files:
