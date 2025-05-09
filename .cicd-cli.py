@@ -122,16 +122,6 @@ def gardenlinux_timestamp():
     print(glci.model.snapshot_date(epoch=epoch))
 
 
-def _gitrepo():
-    repo = git.Repo(paths.repo_root)
-    return repo
-
-
-def _head_sha():
-    repo = _gitrepo()
-    return repo.head.commit.hexsha
-
-
 def  _fix_version(parsed_version: str, parsed_epoch: int):
     """
     Check if parsed version is a semver version number and issue a warning if not
@@ -203,102 +193,6 @@ def _download_release_artifact(
         s3_key=s3_key,
         file_name=outfile,
     )
-
-
-def _print_used_args(parsed_args: dict):
-    print('finding release(set)s with following properties:')
-    for arg_key, arg_value in parsed_args.items():
-        if isinstance(arg_value, enum.Enum):
-            arg_value = arg_value.value
-        elif isinstance(arg_value, io.FileIO):
-            arg_value = arg_value.name
-        print(f'{arg_key} : {arg_value}')
-    print('--------')
-
-
-def _retrieve_argparse(parser):
-    repo = _gitrepo()
-    parser.add_argument(
-        '--committish', '-c',
-        default=_head_sha(),
-        type=lambda c: repo.git.rev_parse(c),
-        help='commit of this artifact (min. first 6 chars), default: HEAD',
-    )
-    parser.add_argument(
-        '--cicd-cfg',
-        default='default',
-        help='configuration key for ci, default: \'%(default)s\'',
-        )
-    parser.add_argument(
-        '--version',
-        default=glci.model.parse_version_from_workingtree(),
-        help='Gardenlinux version number, e.g. \'318.9\', default: %(default)s',
-    )
-    parser.add_argument(
-        '--gardenlinux-epoch',
-        default=glci.model.gardenlinux_epoch_from_workingtree(),
-        help='Gardenlinux epoch, e.g. \'318\', default: %(default)s',
-        type=int,
-    )
-    parser.add_argument(
-        '--outfile', '-o',
-        type=lambda f: open(f, 'w'),
-        default=sys.stdout,
-        help='destination file for output, default: stdout'
-    )
-
-    return parser
-
-
-def retrieve_release_set():
-    parser = argparse.ArgumentParser(
-        description='Get manifest sets from the build artifact repository (S3)',
-        epilog='Example: retrieve-release-set --version=27.1.0 --gardenlinux-epoch=27 --build-type=release' # noqa E501
-    )
-    _retrieve_argparse(parser=parser)
-    parser.add_argument(
-        '--flavourset',
-        default='gardener',
-        help='Flavour set, see: https://github.com/gardenlinux/gardenlinux/blob/main/flavours.yaml'
-        ' default: %(default)s',
-    )
-
-    parser.add_argument(
-        '--build-type',
-        action=EnumAction,
-        default=glci.model.BuildType.RELEASE,
-        help='Build artifact type, default: \'%(default)s\'',
-        type=glci.model.BuildType,
-    )
-
-    parsed = parser.parse_args()
-    parsed.version = _fix_version(parsed.version, parsed.gardenlinux_epoch)
-    _print_used_args(vars(parsed))
-
-    find_release_set = glci.util.preconfigured(
-        func=glci.util.find_release_set,
-        cfg=glci.util.cicd_cfg(parsed.cicd_cfg),
-    )
-
-    release_set = find_release_set(
-        flavour_set_name=parsed.flavourset,
-        build_committish=parsed.committish,
-        version=parsed.version,
-        gardenlinux_epoch=parsed.gardenlinux_epoch,
-        build_type=parsed.build_type,
-        absent_ok=True,
-    )
-
-    if release_set is None:
-        print('Did not find specified release-set')
-        sys.exit(1)
-
-    with parsed.outfile as f:
-        yaml.dump(
-            data=dataclasses.asdict(release_set),
-            stream=f,
-            Dumper=glci.util.EnumValueYamlDumper,
-        )
 
 
 def _add_flavourset_args(parser):
