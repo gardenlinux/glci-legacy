@@ -1,7 +1,0 @@
-# use this file to configure gardenlinux-versions to publish using `publish-release-set` command
-# (either when running locally, or using cicd-pipeline)
-# use `ls-manifests` command to find available version/commit-combinations
-# pipeline-job (.ci/pipeline_definitions) references named versions from this file
-- name: 'default'
-  version: '1283.0'
-  commit: '9b43aea'
