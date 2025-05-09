@@ -96,55 +96,6 @@ def  _fix_version(parsed_version: str, parsed_epoch: int):
     return result
 
 
-def _download_obj_to_file(
-    cicd_cfg: glci.util.cicd_cfg,
-    bucket_name: str,
-    s3_key: str,
-    file_name: str,
-):
-    s3_session = glci.aws.session(cicd_cfg.build.aws_cfg_name)
-    s3_client = s3_session.client('s3')
-    s3_client.download_file(bucket_name, s3_key, file_name)
-    return 0
-
-
-def _download_release_artifact(
-        cicd_cfg: glci.util.cicd_cfg,
-        name: str,
-        outfile: str,
-        manifest: glci.model.OnlineReleaseManifest,
-):
-    if name == 'log' or name == 'logs':
-        log_obj = manifest.logs
-        if not log_obj:
-            print('Error: No logs attached to release manifest')
-            return 1
-        elif type(log_obj) is glci.model.S3ReleaseFile:
-            s3_key = log_obj.s3_key
-            s3_bucket = log_obj.s3_bucket_name
-        else:
-            s3_bucket = cicd_cfg.build.s3_bucket_name
-            s3_key = log_obj # old format (str) can be removed if all old manifests are cleaned
-
-    else:
-        file_objs = [entry for entry in manifest.paths if entry.name == name]
-        if not file_objs:
-            print(f'Error: No object in release manifest with name {name}')
-            return 1
-        if len(file_objs) > 1:
-            print(f'Warning.: Found more than one file with name {name}, using first one')
-        s3_key = file_objs[0].s3_key
-        s3_bucket = file_objs[0].s3_bucket_name
-
-    print(f'Downloading object with S3-key: {s3_key} from bucket {s3_bucket}, to {outfile}')
-    return _download_obj_to_file(
-        cicd_cfg=cicd_cfg,
-        bucket_name=s3_bucket,
-        s3_key=s3_key,
-        file_name=outfile,
-    )
-
-
 def _add_flavourset_args(parser):
     parser.add_argument(
         '--flavourset',

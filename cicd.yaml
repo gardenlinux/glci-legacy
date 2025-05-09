@@ -1,8 +1,0 @@
-# this cfg is no longer used - keep slack-cfg for convenience until migrated or removed
-cicd_cfgs:
-  - name: 'default'
-    notify:
-      email_cfg_name: 'ses_gardener_cloud_sap'
-      slack_cfg_name: 'ti_workspace'
-      slack_channel: 'GURQBS34Z'
-      branches: ['main']
