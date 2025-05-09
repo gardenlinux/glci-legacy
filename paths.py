@@ -24,7 +24,6 @@ if not os.path.isdir(gardenlinux_builder_dir):
     exit(1)
 
 publishing_cfg_path = os.path.join(repo_root, 'publishing-cfg.yaml')
-publishing_versions_path = os.path.join(repo_root, 'publishing-versions.yaml')
 package_alias_path = os.path.join(repo_root, 'package_aliases.yaml')
 
 flavour_cfg_path = os.path.join(repo_root, 'flavours.yaml')

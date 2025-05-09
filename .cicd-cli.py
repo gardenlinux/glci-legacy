@@ -9,7 +9,6 @@ import git
 import logging
 import os
 import pprint
-import re
 import sys
 import yaml
 
@@ -228,9 +227,6 @@ def publish_release_set():
         '--version',
     )
     parser.add_argument(
-        '--version-name',
-    )
-    parser.add_argument(
         '--commit',
     )
     parser.add_argument(
@@ -290,24 +286,17 @@ def publish_release_set():
     commit = None
 
     if not bool(parsed.version_file):
-        if not bool(parsed.version) ^ bool(parsed.version_name):
-            logger.fatal('exactly one of --version, --version-name must be passed')
+        if not bool(parsed.version):
+            logger.fatal('--version must be passed')
             exit(1)
 
-        if not bool(parsed.commit) ^ bool(parsed.version_name):
-            logger.fatal('exactly one of --commit, --version-name must be passed')
+        if not bool(parsed.commit):
+            logger.fatal('--commit must be passed')
             exit(1)
 
-        if parsed.version:
-            version = parsed.version
-            commit = parsed.commit
+        version = parsed.version
+        commit = parsed.commit
 
-        if parsed.version_name:
-            publish_version = glci.util.publishing_version(
-                version_name=parsed.version_name,
-            )
-            version = publish_version.version
-            commit = publish_version.commit
     else:
         with open(parsed.version_file[0]) as f:
             version_yaml = yaml.safe_load(f)
