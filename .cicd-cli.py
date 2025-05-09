@@ -6,7 +6,6 @@ import enum
 import typing
 
 import git
-import io
 import logging
 import os
 import pprint
@@ -61,55 +60,6 @@ class EnumAction(argparse.Action):
         # Convert value back into an Enum
         value = self._enum(values)
         setattr(namespace, self.dest, value)
-
-
-def clean_build_result_repository():
-    import cleanup
-    
-    parser = argparse.ArgumentParser(
-        description='Cleanup in manifests repository (S3)',
-        epilog='Warning: dangerous, use only if you know what you are doing!',
-    )
-    parser.add_argument(
-        '--cicd-cfg',
-        default='default',
-        help='configuration key for ci, default: \'%(default)s\'',
-        )
-    parser.add_argument(
-        '--snapshot-max-age-days',
-        default=30,
-        help='delete manifests older than (number of days), default: %(default)s',
-        type=int,
-    )
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='only print information about objects to be deleted',
-    )
-
-    parsed = parser.parse_args()
-
-    cicd_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
-
-    print('purging outdated build snapshot manifests')
-    cleanup.clean_single_release_manifests(
-        max_age_days=parsed.snapshot_max_age_days,
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
-
-    print('purging outdated build result snapshot sets (release-candidates)')
-    cleanup.clean_release_manifest_sets(
-        max_age_days=parsed.snapshot_max_age_days,
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
-
-    print('purging loose objects')
-    cleanup.clean_orphaned_objects(
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
 
 
 def gardenlinux_epoch():
