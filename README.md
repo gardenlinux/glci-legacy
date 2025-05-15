@@ -20,6 +20,7 @@ podman run --rm -it -v /path/to/gardenlinux-credentials.json:/gardenlinux-creden
 - install additional python-packages from Dockerfile
 - clone https://github.com/gardenlinux/gardenlinux in a sibling directory `gardenlinux` to this repo
 - install SAP root certificates (see instructions [below](#install-sap-certs)
+- Set up environment variables (read hack/env-vars.sh file) 
 
 
 See `Credential Handling` below for details of how to pass secrets to publishing-script.
@@ -77,7 +78,7 @@ CA's locally trusted, we also need to add those when running glci.
 In case of pipeline runs, we have this already installed in the job image 
 (e.g. [here](https://github.com/gardener/cc-utils/blob/7ed9d6575cbe83ef1e04110b0e743ffc21a8ced7/Dockerfile.job-image-base#L51)). 
 In case you want to run glci locally, you need to install those 
-manually on your system, as described below.
+manually on your system. You can use the `hack/install-sap-ceret-to-pyenv.sh` or the steps described below.
 
 The global root CA can be downloaded from [here](https://sapcerts.wdf.global.corp.sap/CandP.aspx)
 You will need the follwing two CRT files:
