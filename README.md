@@ -19,6 +19,8 @@ podman run --rm -it -v /path/to/gardenlinux-credentials.json:/gardenlinux-creden
 - alternative: manually install from https://github.com/gardener/cc-utils
 - install additional python-packages from Dockerfile
 - clone https://github.com/gardenlinux/gardenlinux in a sibling directory `gardenlinux` to this repo
+- install SAP root certificates (see instructions [below](#install-sap-certs)
+
 
 See `Credential Handling` below for details of how to pass secrets to publishing-script.
 
@@ -69,6 +71,30 @@ semicolon separated list of email addresses emails are sent only to these
 recipients. CODEWONWERS access is not needed then. For configuring an SMTP
 server a sample file is provided.
 
+## Install SAP certs
+Since glci depends on the gardener cicd libs, which in turn requires SAP's root
+CA's locally trusted, we also need to add those when running glci. 
+In case of pipeline runs, we have this already installed in the job image 
+(e.g. [here](https://github.com/gardener/cc-utils/blob/7ed9d6575cbe83ef1e04110b0e743ffc21a8ced7/Dockerfile.job-image-base#L51)). 
+In case you want to run glci locally, you need to install those 
+manually on your system, as described below.
+
+The global root CA can be downloaded from [here](https://sapcerts.wdf.global.corp.sap/CandP.aspx)
+You will need the follwing two CRT files:
+- [SapNetCA_G2_2](https://aia.pki.co.sap.com/aia/SAPNetCA_G2_2.crt)
+- [Sap Global Root](https://aia.pki.co.sap.com/aia/SAP%20Global%20Root%20CA.crt)
+
+Once downloaded, you need to add the certificates to your local trusted certificates file.
+To find the file location of the trusted certificates, you can use the following command:
+```
+CA_CERT_PEM_FILE=$(python -c 'import certifi; print(certifi.where()) 
+``` 
+
+Append the downloaded certificates to the trusted certificates file:
+```
+cat "SAPNetCA_G2_2.crl" >> $CA_CERT_PEM_FILE
+cat "SAP Global Root CA.crt" >> $CA_CERT_PEM_FILE
+```
 
 ## Integration Tests (under construction)
 
