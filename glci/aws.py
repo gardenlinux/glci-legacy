@@ -139,6 +139,7 @@ def register_image(
     snapshot_id: str,
     image_name: str,
     architecture: str,
+    uefi_required: bool,
     uefi_data: typing.Optional[str],
 ) -> str:
     """
@@ -167,6 +168,8 @@ def register_image(
         'RootDeviceName': root_device_name,
         'VirtualizationType': 'hvm'  # | paravirtual
     }
+    if uefi_required:
+        params['BootMode'] = 'uefi'
     if uefi_data:
         params['BootMode'] = 'uefi'
         params['TpmSupport'] = 'v2.0'
@@ -558,6 +561,7 @@ def upload_and_register_gardenlinux_image(
             snapshot_id=snapshot_id,
             image_name=target_image_name,
             architecture=_to_aws_architecture(release.architecture),
+            uefi_required=release.require_uefi,
             uefi_data=uefi_data,
         )
         attach_tags(ec2_client=ec2_client, resources=[initial_ami_id], tags=tags)

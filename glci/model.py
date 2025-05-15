@@ -453,6 +453,7 @@ class ReleaseManifest(ReleaseIdentifier):
     build_timestamp: str
     paths: typing.Tuple[S3ReleaseFile, ...]
     base_image: typing.Optional[str]
+    require_uefi: typing.Optional[bool]
     secureboot: typing.Optional[bool]
 
     published_image_metadata: typing.Union[
