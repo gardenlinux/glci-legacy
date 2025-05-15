@@ -87,12 +87,12 @@ You will need the follwing two CRT files:
 Once downloaded, you need to add the certificates to your local trusted certificates file.
 To find the file location of the trusted certificates, you can use the following command:
 ```
-CA_CERT_PEM_FILE=$(python -c 'import certifi; print(certifi.where()) 
+CA_CERT_PEM_FILE=$(python -c 'import certifi; print(certifi.where())')
 ``` 
 
 Append the downloaded certificates to the trusted certificates file:
 ```
-cat "SAPNetCA_G2_2.crl" >> $CA_CERT_PEM_FILE
+cat "SAPNetCA_G2_2.crt" >> $CA_CERT_PEM_FILE
 cat "SAP Global Root CA.crt" >> $CA_CERT_PEM_FILE
 ```
 
