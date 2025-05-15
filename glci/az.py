@@ -180,16 +180,19 @@ def _get_target_blob_name(release: glci.model.OnlineReleaseManifest, generation:
     return f"gardenlinux-{name}.vhd"
 
 
-def _append_hyper_v_generation_architecture_and_secureboot(
+def _append_hyper_v_generation_architecture_and_usi_or_secureboot(
         s: str,
         generation: glci.model.AzureHyperVGeneration,
         architecture: glci.model.Architecture,
+        usi: bool,
         secureboot: bool
     ):
     if architecture == glci.model.Architecture.ARM64:
         s=f"{s}-arm64"
     if generation == glci.model.AzureHyperVGeneration.V2:
         s=f"{s}-gen2"
+    if usi:
+        s=f"{s}-usi"
     if secureboot:
         s=f"{s}-secureboot"
     return s
@@ -210,7 +213,7 @@ def _create_shared_image(
     gallery_regions: list[str] | None,
     release: glci.model.OnlineReleaseManifest
 ) -> CommunityGalleryImageVersion:
-    image_definition_name=_append_hyper_v_generation_architecture_and_secureboot(image_name, hyper_v_generation, release.architecture, release.secureboot)
+    image_definition_name=_append_hyper_v_generation_architecture_and_usi_or_secureboot(image_name, hyper_v_generation, release.architecture, release.require_uefi, release.secureboot)
 
     # begin_create_or_update() can change gallery image definitions - which is potentially dangerous for existing images
     # checking if a given gallery image definition already exists to make sure only new definitions get created
@@ -229,7 +232,7 @@ def _create_shared_image(
             GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
         ]
         if release.secureboot:
-            features.append(GalleryImageFeature(name="SecurityType", value="TrustedLaunchSupported"))
+            features.append(GalleryImageFeature(name="SecurityType", value="TrustedLaunch"))
 
         poller = cclient.gallery_images.begin_create_or_update(
             resource_group_name=resource_group_name,
@@ -248,7 +251,7 @@ def _create_shared_image(
                 identifier=GalleryImageIdentifier(
                     publisher=shared_gallery_cfg.identifier_publisher,
                     offer=shared_gallery_cfg.identifier_offer,
-                    sku=_append_hyper_v_generation_architecture_and_secureboot(shared_gallery_cfg.identifier_sku, hyper_v_generation, release.architecture, release.secureboot),
+                    sku=_append_hyper_v_generation_architecture_and_usi_or_secureboot(shared_gallery_cfg.identifier_sku, hyper_v_generation, release.architecture, release.require_uefi, release.secureboot),
                 )
             )
         )
@@ -560,6 +563,9 @@ def publish_azure_image(
     for hyper_v_generation in hyper_v_generations:
         # arm64 requires Hyper-V gen2 therefore not publishing arm64 for gen1
         if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.architecture == glci.model.Architecture.ARM64:
+            continue
+        # uefi requires Hyper-V gen2 therefore not publishing uefi for gen1
+        if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.require_uefi:
             continue
         # secureboot requires Hyper-V gen2 therefore not publishing secureboot for gen1
         if hyper_v_generation == glci.model.AzureHyperVGeneration.V1 and release.secureboot:
