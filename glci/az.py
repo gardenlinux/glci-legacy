@@ -232,7 +232,7 @@ def _create_shared_image(
             GalleryImageFeature(name="DiskControllerTypes", value="SCSI, NVMe"),
         ]
         if release.secureboot:
-            features.append(GalleryImageFeature(name="SecurityType", value="TrustedLaunch"))
+            features.append(GalleryImageFeature(name="SecurityType", value="TrustedLaunchSupported"))
 
         poller = cclient.gallery_images.begin_create_or_update(
             resource_group_name=resource_group_name,
