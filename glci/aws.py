@@ -490,6 +490,10 @@ def upload_and_register_gardenlinux_image(
     for aws_cfg in aws_publishing_cfg.aws_cfgs:
         aws_cfg: glci.model.PublishingTargetAWSAccount
         aws_cfg_name = aws_cfg.aws_cfg_name
+        if aws_cfg_name.endswith('-cn') and release.secureboot:
+            logger.info(f'AWS China does not support secureboot, skipping')
+            continue
+
         tags = calculate_aws_tags(aws_publishing_cfg.image_tags, release)
 
         logger.info(
