@@ -1,4 +1,4 @@
-FROM europe-docker.pkg.dev/gardener-project/releases/cicd/job-image:1.2655.0
+FROM europe-docker.pkg.dev/gardener-project/releases/cicd/job-image:1.2656.0
 
 RUN pip3 install --upgrade \
   'aliyun-python-sdk-ecs>=4.24.80' \
