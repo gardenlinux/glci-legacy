@@ -66,7 +66,7 @@ urn: $azure_id
     - [Importing an Image into Your Device as an Amazon EC2 AMI](https://docs.aws.amazon.com/snowball/latest/developer-guide/ec2-ami-import-cli.html)
     - recommended `aws` command with parameters:
       ```shell
-      aws ec2 register-image --name gardenlinux --description "Garden Linux" --architecture x86_64 --root-device-name /dev/xvda --virtualization-type hvm --ena-support --block-device-mapping "DeviceName=/dev/xvda,Ebs={DeleteOnTermination=True,SnapshotId=<your snapshot ID from snapshot import>,VolumeType=gp2}"
+      aws ec2 register-image --name gardenlinux --description "Garden Linux" --architecture x86_64 --root-device-name /dev/xvda --virtualization-type hvm --ena-support --block-device-mapping "DeviceName=/dev/xvda,Ebs={DeleteOnTermination=True,SnapshotId=<your snapshot ID from snapshot import>,VolumeType=gp3}"
       ```
 
 - Google Cloud Platform

@@ -157,7 +157,7 @@ def register_image(
                 'Ebs': {
                     'DeleteOnTermination': True,
                     'SnapshotId': snapshot_id,
-                    'VolumeType': 'gp2',
+                    'VolumeType': 'gp3',
                 }
             }
         ],
