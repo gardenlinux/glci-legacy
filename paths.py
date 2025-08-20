@@ -23,10 +23,7 @@ if not os.path.isdir(gardenlinux_builder_dir):
     print(f'ERROR: expected worktree of gardenlinux builder repo at {gardenlinux_builder_dir=}')
     exit(1)
 
-cicd_cfg_path = os.path.join(repo_root, 'cicd.yaml')
 publishing_cfg_path = os.path.join(repo_root, 'publishing-cfg.yaml')
-publishing_versions_path = os.path.join(repo_root, 'publishing-versions.yaml')
 package_alias_path = os.path.join(repo_root, 'package_aliases.yaml')
 
 flavour_cfg_path = os.path.join(repo_root, 'flavours.yaml')
-version_path = os.path.join(repo_root, 'VERSION')

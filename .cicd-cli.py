@@ -6,11 +6,9 @@ import enum
 import typing
 
 import git
-import io
 import logging
 import os
 import pprint
-import re
 import sys
 import yaml
 
@@ -61,244 +59,6 @@ class EnumAction(argparse.Action):
         # Convert value back into an Enum
         value = self._enum(values)
         setattr(namespace, self.dest, value)
-
-
-def clean_build_result_repository():
-    import cleanup
-    
-    parser = argparse.ArgumentParser(
-        description='Cleanup in manifests repository (S3)',
-        epilog='Warning: dangerous, use only if you know what you are doing!',
-    )
-    parser.add_argument(
-        '--cicd-cfg',
-        default='default',
-        help='configuration key for ci, default: \'%(default)s\'',
-        )
-    parser.add_argument(
-        '--snapshot-max-age-days',
-        default=30,
-        help='delete manifests older than (number of days), default: %(default)s',
-        type=int,
-    )
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='only print information about objects to be deleted',
-    )
-
-    parsed = parser.parse_args()
-
-    cicd_cfg = glci.util.cicd_cfg(parsed.cicd_cfg)
-
-    print('purging outdated build snapshot manifests')
-    cleanup.clean_single_release_manifests(
-        max_age_days=parsed.snapshot_max_age_days,
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
-
-    print('purging outdated build result snapshot sets (release-candidates)')
-    cleanup.clean_release_manifest_sets(
-        max_age_days=parsed.snapshot_max_age_days,
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
-
-    print('purging loose objects')
-    cleanup.clean_orphaned_objects(
-        cicd_cfg=cicd_cfg,
-        dry_run=parsed.dry_run,
-    )
-
-
-def gardenlinux_epoch():
-    print(glci.model.gardenlinux_epoch_from_workingtree())
-
-
-def gardenlinux_timestamp():
-    epoch = glci.model.gardenlinux_epoch_from_workingtree()
-
-    print(glci.model.snapshot_date(epoch=epoch))
-
-
-def _gitrepo():
-    repo = git.Repo(paths.repo_root)
-    return repo
-
-
-def _head_sha():
-    repo = _gitrepo()
-    return repo.head.commit.hexsha
-
-
-def  _fix_version(parsed_version: str, parsed_epoch: int):
-    """
-    Check if parsed version is a semver version number and issue a warning if not
-    if argument default is used and it is semver it is likely 'today'. Use
-    current day in this case.
-    """
-    pattern = re.compile(r'^[\d.]+$')
-    is_proper_version = pattern.match(parsed_version)
-    # check if default is used from argparser
-    if parsed_version != glci.model.parse_version_from_workingtree():
-        if not is_proper_version:
-            print(f'>>> WARNING: {parsed_version} is not a semver version! <<<')
-        result = parsed_version
-    else:
-        if is_proper_version:
-            result = parsed_version
-        else:
-            result = f'{parsed_epoch}.0'
-
-    if parsed_epoch != int(result.split('.')[0]):
-        print(f'>>> WARNING: version {result} does not match epoch {parsed_epoch}! <<<')
-    return result
-
-
-def _download_obj_to_file(
-    cicd_cfg: glci.util.cicd_cfg,
-    bucket_name: str,
-    s3_key: str,
-    file_name: str,
-):
-    s3_session = glci.aws.session(cicd_cfg.build.aws_cfg_name)
-    s3_client = s3_session.client('s3')
-    s3_client.download_file(bucket_name, s3_key, file_name)
-    return 0
-
-
-def _download_release_artifact(
-        cicd_cfg: glci.util.cicd_cfg,
-        name: str,
-        outfile: str,
-        manifest: glci.model.OnlineReleaseManifest,
-):
-    if name == 'log' or name == 'logs':
-        log_obj = manifest.logs
-        if not log_obj:
-            print('Error: No logs attached to release manifest')
-            return 1
-        elif type(log_obj) is glci.model.S3ReleaseFile:
-            s3_key = log_obj.s3_key
-            s3_bucket = log_obj.s3_bucket_name
-        else:
-            s3_bucket = cicd_cfg.build.s3_bucket_name
-            s3_key = log_obj # old format (str) can be removed if all old manifests are cleaned
-
-    else:
-        file_objs = [entry for entry in manifest.paths if entry.name == name]
-        if not file_objs:
-            print(f'Error: No object in release manifest with name {name}')
-            return 1
-        if len(file_objs) > 1:
-            print(f'Warning.: Found more than one file with name {name}, using first one')
-        s3_key = file_objs[0].s3_key
-        s3_bucket = file_objs[0].s3_bucket_name
-
-    print(f'Downloading object with S3-key: {s3_key} from bucket {s3_bucket}, to {outfile}')
-    return _download_obj_to_file(
-        cicd_cfg=cicd_cfg,
-        bucket_name=s3_bucket,
-        s3_key=s3_key,
-        file_name=outfile,
-    )
-
-
-def _print_used_args(parsed_args: dict):
-    print('finding release(set)s with following properties:')
-    for arg_key, arg_value in parsed_args.items():
-        if isinstance(arg_value, enum.Enum):
-            arg_value = arg_value.value
-        elif isinstance(arg_value, io.FileIO):
-            arg_value = arg_value.name
-        print(f'{arg_key} : {arg_value}')
-    print('--------')
-
-
-def _retrieve_argparse(parser):
-    repo = _gitrepo()
-    parser.add_argument(
-        '--committish', '-c',
-        default=_head_sha(),
-        type=lambda c: repo.git.rev_parse(c),
-        help='commit of this artifact (min. first 6 chars), default: HEAD',
-    )
-    parser.add_argument(
-        '--cicd-cfg',
-        default='default',
-        help='configuration key for ci, default: \'%(default)s\'',
-        )
-    parser.add_argument(
-        '--version',
-        default=glci.model.parse_version_from_workingtree(),
-        help='Gardenlinux version number, e.g. \'318.9\', default: %(default)s',
-    )
-    parser.add_argument(
-        '--gardenlinux-epoch',
-        default=glci.model.gardenlinux_epoch_from_workingtree(),
-        help='Gardenlinux epoch, e.g. \'318\', default: %(default)s',
-        type=int,
-    )
-    parser.add_argument(
-        '--outfile', '-o',
-        type=lambda f: open(f, 'w'),
-        default=sys.stdout,
-        help='destination file for output, default: stdout'
-    )
-
-    return parser
-
-
-def retrieve_release_set():
-    parser = argparse.ArgumentParser(
-        description='Get manifest sets from the build artifact repository (S3)',
-        epilog='Example: retrieve-release-set --version=27.1.0 --gardenlinux-epoch=27 --build-type=release' # noqa E501
-    )
-    _retrieve_argparse(parser=parser)
-    parser.add_argument(
-        '--flavourset',
-        default='gardener',
-        help='Flavour set, see: https://github.com/gardenlinux/gardenlinux/blob/main/flavours.yaml'
-        ' default: %(default)s',
-    )
-
-    parser.add_argument(
-        '--build-type',
-        action=EnumAction,
-        default=glci.model.BuildType.RELEASE,
-        help='Build artifact type, default: \'%(default)s\'',
-        type=glci.model.BuildType,
-    )
-
-    parsed = parser.parse_args()
-    parsed.version = _fix_version(parsed.version, parsed.gardenlinux_epoch)
-    _print_used_args(vars(parsed))
-
-    find_release_set = glci.util.preconfigured(
-        func=glci.util.find_release_set,
-        cfg=glci.util.cicd_cfg(parsed.cicd_cfg),
-    )
-
-    release_set = find_release_set(
-        flavour_set_name=parsed.flavourset,
-        build_committish=parsed.committish,
-        version=parsed.version,
-        gardenlinux_epoch=parsed.gardenlinux_epoch,
-        build_type=parsed.build_type,
-        absent_ok=True,
-    )
-
-    if release_set is None:
-        print('Did not find specified release-set')
-        sys.exit(1)
-
-    with parsed.outfile as f:
-        yaml.dump(
-            data=dataclasses.asdict(release_set),
-            stream=f,
-            Dumper=glci.util.EnumValueYamlDumper,
-        )
 
 
 def _add_flavourset_args(parser):
@@ -467,9 +227,6 @@ def publish_release_set():
         '--version',
     )
     parser.add_argument(
-        '--version-name',
-    )
-    parser.add_argument(
         '--commit',
     )
     parser.add_argument(
@@ -529,24 +286,17 @@ def publish_release_set():
     commit = None
 
     if not bool(parsed.version_file):
-        if not bool(parsed.version) ^ bool(parsed.version_name):
-            logger.fatal('exactly one of --version, --version-name must be passed')
+        if not bool(parsed.version):
+            logger.fatal('--version must be passed')
             exit(1)
 
-        if not bool(parsed.commit) ^ bool(parsed.version_name):
-            logger.fatal('exactly one of --commit, --version-name must be passed')
+        if not bool(parsed.commit):
+            logger.fatal('--commit must be passed')
             exit(1)
 
-        if parsed.version:
-            version = parsed.version
-            commit = parsed.commit
+        version = parsed.version
+        commit = parsed.commit
 
-        if parsed.version_name:
-            publish_version = glci.util.publishing_version(
-                version_name=parsed.version_name,
-            )
-            version = publish_version.version
-            commit = publish_version.commit
     else:
         with open(parsed.version_file[0]) as f:
             version_yaml = yaml.safe_load(f)

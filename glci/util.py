@@ -50,43 +50,6 @@ def publishing_cfg(
         raise ValueError(f'not found: {cfg_name=}')
 
 
-def publishing_version(
-    version_name: str='default',
-    version_file=paths.publishing_versions_path,
-) -> glci.model.PublishingVersion:
-    with open(version_file) as f:
-        parsed = yaml.safe_load(f)
-
-    for version_cfg in parsed:
-        version = dacite.from_dict(
-            data_class=glci.model.PublishingVersion,
-            data=version_cfg,
-        )
-        if version.name == version_name:
-            return version
-    else:
-        raise ValueError(f'{version_name=} not found in {version_file=}')
-
-
-def cicd_cfg(
-    cfg_name: str='default',
-    cfg_file=paths.cicd_cfg_path,
-) -> CicdCfg:
-    with open(cfg_file) as f:
-        parsed = yaml.safe_load(f)
-
-    for raw in parsed['cicd_cfgs']:
-        cfg = dacite.from_dict(
-            data_class=CicdCfg,
-            data=raw,
-            config=dacite.Config(cast=[typing.Tuple]),
-        )
-        if cfg.name == cfg_name:
-            return cfg
-    else:
-        raise ValueError(f'not found: {cfg_name=}')
-
-
 def flavour_sets(
     build_yaml: str=paths.flavour_cfg_path,
 ) -> typing.List[GardenlinuxFlavourSet]:
@@ -477,24 +440,6 @@ def find_release_set(
     )
 
     return manifest
-
-
-@functools.lru_cache
-def preconfigured(
-    func: callable,
-    cfg=None
-):
-    if not cfg:
-        cfg = glci.model.CicdCfg=cfg()
-
-    s3_session = glci.aws.session(cfg.build.aws_cfg_name)
-    s3_client = s3_session.client('s3')
-
-    return functools.partial(
-        func,
-        s3_client=s3_client,
-        bucket_name=cfg.build.s3_bucket_name,
-    )
 
 
 class EnumValueYamlDumper(yaml.SafeDumper):
