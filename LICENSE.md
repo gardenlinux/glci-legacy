@@ -1,4 +1,4 @@
-Copyright 2022, SAP SE <gardenlinux@gardenlinux.io>
+Copyright 2025, SAP SE <gardenlinux-admin@lists.neonephos.org>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the “Software”), to deal in
