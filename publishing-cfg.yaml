@@ -58,6 +58,7 @@
         vmware_ostype: debian10_64Guest
         hw_vif_model: vmxnet3
         hw_disk_bus: scsi
+        hw_firmware_type: uefi
         vmware_adaptertype: paraVirtual
         vmware_disktype: streamOptimized
     - platform: 'openstackbaremetal'
@@ -118,6 +119,7 @@
         vmware_ostype: debian10_64Guest
         hw_vif_model: vmxnet3
         hw_disk_bus: scsi
+        hw_firmware_type: uefi
         vmware_adaptertype: paraVirtual
         vmware_disktype: streamOptimized
     - platform: 'azure'
