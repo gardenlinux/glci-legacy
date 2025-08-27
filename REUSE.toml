@@ -1,7 +1,7 @@
 version = 1
 SPDX-PackageName = "Gardenlinux glci"
 SPDX-PackageSupplier = "GardenLinux authors <gardenlinux-admin@lists.neonephos.org>"
-SPDX-PackageDownloadLocation = "https://github.com/gardenlinux/glci"
+SPDX-PackageDownloadLocation = "https://github.com/gardenlinux/glci-legacy"
 
 [[annotations]]
 path = "**"
