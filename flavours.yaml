@@ -25,11 +25,19 @@ flavour_sets:
     flavour_combinations:
       - architectures:
         - amd64
+        platforms:
+        - aws
+        - azure
+        - gcp
+        - openstack
+        modifiers:
+        - [ gardener, _usi, _prod ]
+      - architectures:
         - arm64
         platforms:
         - aws
-        - gcp
         - azure
+        - gcp
         modifiers:
         - [ gardener, _usi, _prod ]
   - name: 'gardener-secureboot'
@@ -39,7 +47,7 @@ flavour_sets:
         - arm64
         platforms:
         - aws
-        - gcp
         - azure
+        - gcp
         modifiers:
         - [ gardener, _trustedboot, _tpm2, _prod ]
