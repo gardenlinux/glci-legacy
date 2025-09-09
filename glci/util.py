@@ -25,7 +25,6 @@ GardenlinuxFlavour = glci.model.GardenlinuxFlavour
 GardenlinuxFlavourCombination = glci.model.GardenlinuxFlavourCombination
 Architecture = glci.model.Architecture
 
-CicdCfg = glci.model.CicdCfg
 PublishingCfg = glci.model.PublishingCfg
 
 logger = logging.getLogger(__name__)

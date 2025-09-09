@@ -605,32 +605,6 @@ class BuildType(enum.Enum):
 
 
 @dataclasses.dataclass(frozen=True)
-class BuildCfg:
-    aws_cfg_name: str
-    aws_region: str
-    s3_bucket_name: str
-    gcp_bucket_name: str
-    gcp_cfg_name: str
-    storage_account_config_name: str
-    service_principal_name: str
-    plan_config_name: str
-    oss_bucket_name: str
-    alicloud_region: str
-    alicloud_cfg_name: str
-
-
-@dataclasses.dataclass(frozen=True)
-class AwsPublishCfg:
-    aws_cfg_names: typing.Tuple[str, ...]
-
-
-@dataclasses.dataclass(frozen=True)
-class PackageBuildCfg:
-    aws_cfg_name: str
-    s3_bucket_name: str
-
-
-@dataclasses.dataclass(frozen=True)
 class AzureServicePrincipalCfg:
     tenant_id: str
     client_id: str
@@ -645,17 +619,6 @@ class AzureStorageAccountCfg:
     container_name_sig: str
     access_key: str
     endpoint_suffix: str
-
-
-@dataclasses.dataclass(frozen=True)
-class AzurePublishCfg:
-    offer_id: str
-    publisher_id: str
-    plan_id: str
-    service_principal_cfg_name: str
-    storage_account_cfg_name: str
-    shared_gallery_cfg_name: typing.Optional[str]
-    notification_emails: typing.Tuple[str, ...]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -680,50 +643,6 @@ class OpenstackEnvironment:
     project_name: str
     username: str
     password: str
-
-
-@dataclasses.dataclass(frozen=True)
-class OpenstackPublishCfg:
-    environment_cfg_name: str
-    image_properties_cfg_name: str
-
-
-@dataclasses.dataclass(frozen=True)
-class OciPublishCfg:
-    image_prefix: str
-
-
-@dataclasses.dataclass(frozen=True)
-class CiPublishCfg:
-    committish: str
-    epoch: int
-    version: str
-
-
-@dataclasses.dataclass(frozen=True)
-class PublishCfg:
-    aws: AwsPublishCfg
-    azure: AzurePublishCfg
-    ci: CiPublishCfg
-    oci: OciPublishCfg
-    openstack: OpenstackPublishCfg
-
-
-@dataclasses.dataclass(frozen=True)
-class NotificationCfg:
-    email_cfg_name: str
-    slack_cfg_name: str
-    slack_channel: str
-    branches: typing.Tuple[str, ...]
-
-
-@dataclasses.dataclass(frozen=True)
-class CicdCfg:
-    name: str
-    build: BuildCfg
-    publish: PublishCfg
-    notify: NotificationCfg
-    package_build: typing.Optional[PackageBuildCfg]
 
 
 class BuildResultBucketRole(enum.Enum):
